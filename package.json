@@ -1,22 +1,22 @@
 {
-  "name": "n8n-nodes-<...>",
+  "name": "n8n-nodes-callisto-network",
   "version": "0.1.0",
-  "description": "",
+  "description": "n8n node for Callisto Network claims and voting",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "callisto-network",
+    "blockchain",
+    "crypto"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://github.com/hihouhou/n8n-nodes-callisto-network",
   "author": {
-    "name": "",
-    "email": ""
+    "name": "hihouhou",
+    "email": "hihouhou@hihouhou.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/<...>/n8n-nodes-<...>.git"
-  },
-  "engines": {
-    "node": ">=20.15"
+    "url": "https://github.com/hihouhou/n8n-nodes-callisto-network.git"
   },
   "main": "index.js",
   "scripts": {
@@ -33,12 +33,10 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/ExampleCredentialsApi.credentials.js",
-      "dist/credentials/HttpBinApi.credentials.js"
+      "dist/credentials/CallistoNetworkApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/ExampleNode/ExampleNode.node.js",
-      "dist/nodes/HttpBin/HttpBin.node.js"
+      "dist/nodes/CallistoNetwork/CallistoNetwork.node.js"
     ]
   },
   "devDependencies": {
@@ -50,6 +48,8 @@
     "typescript": "^5.8.2"
   },
   "peerDependencies": {
-    "n8n-workflow": "*"
+    "n8n-workflow": "*",
+    "ethers": "^6.8.0",
+    "axios": "^1.6.0"
   }
 }
