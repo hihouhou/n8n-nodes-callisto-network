@@ -97,6 +97,18 @@ export class CallistoNetwork implements INodeType {
                                 description: 'The wallet address',
                         },
                         {
+                                displayName: 'Only Trigger on Balance Change',
+                                name: 'onlyOnChange',
+                                type: 'boolean',
+                                default: true,
+                                description: 'Whether to only output data when the wallet balance changes',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['getBalance'],
+                                        },
+                                },
+                        },
+                        {
                                 displayName: 'Private Key',
                                 name: 'privateKey',
                                 type: 'string',
@@ -236,7 +248,7 @@ export class CallistoNetwork implements INodeType {
                 const items = this.getInputData();
                 const returnData: INodeExecutionData[] = [];
 
-                // ABI du contrat DAO Callisto Network basé sur votre fichier
+                // Callisto Network DAO contract ABI based on your file
                 const contractABI = [
                         {"type":"constructor","stateMutability":"nonpayable","inputs":[{"type":"address","name":"_firstUser","internalType":"address"},{"type":"string","name":"_name","internalType":"string"}]},
                         {"type":"event","name":"ChangeStatus","inputs":[{"type":"uint256","name":"_id","internalType":"uint256","indexed":true},{"type":"uint8","name":"_status","internalType":"uint8","indexed":false}],"anonymous":false},
@@ -357,7 +369,13 @@ export class CallistoNetwork implements INodeType {
                                                 break;
 
                                         case 'getBalance':
-                                                result = await CallistoNetwork.prototype.getBalance(provider, walletAddress);
+                                                const onlyOnChange = this.getNodeParameter('onlyOnChange', i, true) as boolean;
+                                                result = await CallistoNetwork.prototype.getBalance(this, provider, walletAddress, onlyOnChange);
+
+                                                // If balance hasn't changed and onlyOnChange is true, skip this item
+                                                if (result.balanceChanged === false && onlyOnChange) {
+                                                        continue;
+                                                }
                                                 break;
 
                                         case 'listProposalIds':
@@ -418,7 +436,7 @@ export class CallistoNetwork implements INodeType {
                 return [returnData];
         }
 
-        // Get active proposals - CORRIGÉ pour utiliser la bonne ABI
+        // Get active proposals - FIXED to use correct ABI
         private async getActiveProposals(
                 provider: ethers.JsonRpcProvider,
                 contractAddress: string,
@@ -428,14 +446,14 @@ export class CallistoNetwork implements INodeType {
                 const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
                 try {
-                        // Récupérer le nombre total de votes/propositions
+                        // Get total number of votes/proposals
                         const totalVoting = await contract.total_voting();
                         const maxProposals = Math.min(Number(totalVoting), options.maxProposals || 20);
 
                         const activeProposals = [];
                         const allProposals = [];
 
-                        // Récupérer les propositions en utilisant getProposalsList
+                        // Get proposals using getProposalsList
                         try {
                                 const proposals = await contract.getProposalsList(1, maxProposals);
 
@@ -464,7 +482,7 @@ export class CallistoNetwork implements INodeType {
                                         }
                                 }
                         } catch (error) {
-                                // Si getProposalsList échoue, essayer de récupérer individuellement
+                                // If getProposalsList fails, try to get individually
                                 for (let i = 1; i <= maxProposals; i++) {
                                         try {
                                                 const proposal = await contract.getProposal(i);
@@ -491,7 +509,7 @@ export class CallistoNetwork implements INodeType {
                                                         activeProposals.push(proposalData);
                                                 }
                                         } catch (err) {
-                                                // Ignorer les erreurs pour des IDs inexistants
+                                                // Ignore errors for non-existent IDs
                                                 continue;
                                         }
                                 }
@@ -510,7 +528,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // List available proposal IDs - NOUVEAU
+        // List available proposal IDs - NEW
         private async listProposalIds(
                 provider: ethers.JsonRpcProvider,
                 contractAddress: string,
@@ -548,7 +566,7 @@ export class CallistoNetwork implements INodeType {
                                 validProposals: availableIds.length,
                                 invalidProposals: invalidIds.length,
                                 availableIds: availableIds,
-                                invalidIds: invalidIds.length > 0 ? invalidIds.slice(0, 10) : [], // Montrer les 10 premiers IDs invalides
+                                invalidIds: invalidIds.length > 0 ? invalidIds.slice(0, 10) : [], // Show first 10 invalid IDs
                                 suggestion: availableIds.length > 0 ?
                                         `Use proposal IDs: ${availableIds.slice(0, 5).map(p => p.id).join(', ')}${availableIds.length > 5 ? '...' : ''}` :
                                         'No valid proposals found',
@@ -559,7 +577,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Get proposal details - CORRIGÉ avec validation
+        // Get proposal details - FIXED with validation
         private async getProposalDetails(
                 provider: ethers.JsonRpcProvider,
                 contractAddress: string,
@@ -570,7 +588,7 @@ export class CallistoNetwork implements INodeType {
                 const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
                 try {
-                        // Vérifier d'abord si la proposition existe en vérifiant le total
+                        // First check if the proposal exists by checking the total
                         const totalVoting = await contract.total_voting();
                         const proposalIdNum = parseInt(proposalId);
 
@@ -578,16 +596,16 @@ export class CallistoNetwork implements INodeType {
                                 throw new Error(`Proposal ID ${proposalId} does not exist. Total proposals: ${totalVoting}`);
                         }
 
-                        // Essayer de récupérer la proposition avec gestion d'erreur détaillée
+                        // Try to get the proposal with detailed error handling
                         let proposal;
                         try {
                                 proposal = await contract.getProposal(proposalId);
                         } catch (contractError: any) {
-                                // Si l'appel échoue, essayer avec une méthode alternative
+                                // If the call fails, try with an alternative method
                                 throw new Error(`Proposal ${proposalId} not found or invalid. Contract returned: ${contractError.message || 'Unknown error'}`);
                         }
 
-                        // Vérifier que la proposition retournée est valide
+                        // Check that the returned proposal is valid
                         if (!proposal || proposal.id === undefined) {
                                 throw new Error(`Proposal ${proposalId} exists but returned empty data`);
                         }
@@ -595,7 +613,7 @@ export class CallistoNetwork implements INodeType {
                         const now = Math.floor(Date.now() / 1000);
                         const isActive = proposal.status === 0 && Number(proposal.deadLine) > now;
 
-                        // Gestion sécurisée des arrays qui peuvent être undefined
+                        // Safe handling of arrays that might be undefined
                         const vocesYes = proposal.vocesYes || [];
                         const vocesNo = proposal.vocesNo || [];
 
@@ -622,7 +640,7 @@ export class CallistoNetwork implements INodeType {
                         };
 
                 } catch (error) {
-                        // Retourner des informations détaillées sur l'erreur
+                        // Return detailed error information
                         return {
                                 id: proposalId,
                                 exists: false,
@@ -632,7 +650,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Vote on proposal - CORRIGÉ
+        // Vote on proposal - FIXED
         private async voteOnProposal(
                 provider: ethers.JsonRpcProvider,
                 walletAddress: string,
@@ -654,7 +672,7 @@ export class CallistoNetwork implements INodeType {
 
                         const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 
-                        // Vérifier si la proposition existe et est active
+                        // Check if the proposal exists and is active
                         const proposal = await contract.getProposal(proposalId);
                         const now = Math.floor(Date.now() / 1000);
 
@@ -666,23 +684,23 @@ export class CallistoNetwork implements INodeType {
                                 throw new Error('Proposal deadline has passed');
                         }
 
-                        // Vérifier si l'utilisateur a déjà voté
+                        // Check if user has already voted
                         const hasVoted = proposal.vocesYes.includes(walletAddress) || proposal.vocesNo.includes(walletAddress);
                         if (hasVoted) {
                                 throw new Error('You have already voted on this proposal');
                         }
 
-                        // Préparer les options de transaction
+                        // Prepare transaction options
                         const txOptions = {
                                 gasLimit: gasLimit,
                                 gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
                         };
 
-                        // Voter
+                        // Vote
                         const tx = await contract.vote(proposalId, voteChoice, txOptions);
                         const receipt = await tx.wait();
 
-                        // Récupérer les informations mises à jour de la proposition
+                        // Get updated proposal information
                         const updatedProposal = await contract.getProposal(proposalId);
 
                         return {
@@ -705,7 +723,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Check claims - CORRIGÉ
+        // Check claims - FIXED
         private async checkClaims(
                 provider: ethers.JsonRpcProvider,
                 walletAddress: string,
@@ -716,16 +734,16 @@ export class CallistoNetwork implements INodeType {
                 const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
                 try {
-                        // Récupérer la liste des claims pour cet utilisateur
+                        // Get the list of claims for this user
                         const claimsList = await contract.getClaimList(walletAddress, 1, 100);
-                        const claimIds = claimsList[0]; // Les IDs des propositions
-                        const claimStatuses = claimsList[1]; // Les statuts (true/false pour claimable)
+                        const claimIds = claimsList[0]; // The proposal IDs
+                        const claimStatuses = claimsList[1]; // The statuses (true/false for claimable)
 
                         const availableClaims = [];
                         let totalClaimable = BigInt(0);
 
                         for (let i = 0; i < claimIds.length; i++) {
-                                if (claimStatuses[i]) { // Si claimable
+                                if (claimStatuses[i]) { // If claimable
                                         try {
                                                 const proposal = await contract.getProposal(claimIds[i]);
                                                 availableClaims.push({
@@ -754,7 +772,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Execute claim - CORRIGÉ
+        // Execute claim - FIXED
         private async executeClaim(
                 provider: ethers.JsonRpcProvider,
                 walletAddress: string,
@@ -774,7 +792,7 @@ export class CallistoNetwork implements INodeType {
 
                         const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 
-                        // Vérifier les claims disponibles
+                        // Check available claims
                         const claimsList = await contract.getClaimList(walletAddress, 1, 100);
                         const claimIds = claimsList[0];
                         const claimStatuses = claimsList[1];
@@ -793,7 +811,7 @@ export class CallistoNetwork implements INodeType {
                                 };
                         }
 
-                        // Préparer les options de transaction
+                        // Prepare transaction options
                         const txOptions = {
                                 gasLimit: gasLimit,
                                 gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
@@ -802,7 +820,7 @@ export class CallistoNetwork implements INodeType {
                         const claimResults = [];
                         let totalClaimed = BigInt(0);
 
-                        // Claim chaque récompense
+                        // Claim each reward
                         for (const claimId of claimableIds) {
                                 try {
                                         const proposal = await contract.getProposal(claimId);
@@ -838,7 +856,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Get voting power - CORRIGÉ
+        // Get voting power - FIXED
         private async getVotingPower(
                 provider: ethers.JsonRpcProvider,
                 walletAddress: string,
@@ -849,7 +867,7 @@ export class CallistoNetwork implements INodeType {
                 const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
                 try {
-                        // Récupérer les informations utilisateur
+                        // Get user information
                         const user = await contract.getUser(walletAddress);
 
                         return {
@@ -866,7 +884,7 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Get vote history - CORRIGÉ
+        // Get vote history - FIXED
         private async getVoteHistory(
                 provider: ethers.JsonRpcProvider,
                 walletAddress: string,
@@ -877,7 +895,7 @@ export class CallistoNetwork implements INodeType {
                 const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
                 try {
-                        // Récupérer toutes les propositions et vérifier dans lesquelles l'utilisateur a voté
+                        // Get all proposals and check which ones the user voted on
                         const totalVoting = await contract.total_voting();
                         const maxProposals = Math.min(Number(totalVoting), 50);
 
@@ -913,12 +931,12 @@ export class CallistoNetwork implements INodeType {
                                 }
                         }
 
-                        // Trier par ID de proposition (plus récent en premier)
+                        // Sort by proposal ID (most recent first)
                         voteHistory.sort((a, b) => parseInt(b.proposalId) - parseInt(a.proposalId));
 
                         return {
                                 totalVotes,
-                                voteHistory: voteHistory.slice(0, 20), // Retourner les 20 plus récents
+                                voteHistory: voteHistory.slice(0, 20), // Return the 20 most recent
                         };
 
                 } catch (error) {
@@ -926,20 +944,59 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Get wallet balance
+        // Get wallet balance with change detection
         private async getBalance(
+                executeFunctions: IExecuteFunctions,
                 provider: ethers.JsonRpcProvider,
-                walletAddress: string
+                walletAddress: string,
+                onlyOnChange: boolean = true
         ): Promise<any> {
                 try {
+                        // Get current balance from blockchain
                         const balance = await provider.getBalance(walletAddress);
                         const blockNumber = await provider.getBlockNumber();
+                        const currentBalance = ethers.formatEther(balance);
+                        const currentBalanceWei = balance.toString();
+
+                        // Get workflow static data to store/retrieve previous balance
+                        const workflowStaticData = executeFunctions.getWorkflowStaticData('node');
+                        const balanceKey = `balance_${walletAddress}`;
+                        const balanceWeiKey = `balance_wei_${walletAddress}`;
+                        const lastCheckKey = `last_check_${walletAddress}`;
+
+                        // Get previous balance (default to "0" if first time)
+                        const previousBalance = workflowStaticData[balanceKey] as string || "0";
+                        const previousBalanceWei = workflowStaticData[balanceWeiKey] as string || "0";
+                        const lastCheck = workflowStaticData[lastCheckKey] as string || null;
+
+                        // Check if balance has changed (compare Wei values for precision)
+                        const balanceChanged = currentBalanceWei !== previousBalanceWei;
+
+                        // Calculate balance change
+                        const balanceChangeBigInt = balance - BigInt(previousBalanceWei);
+                        const balanceChange = ethers.formatEther(balanceChangeBigInt);
+
+                        // Update stored values
+                        workflowStaticData[balanceKey] = currentBalance;
+                        workflowStaticData[balanceWeiKey] = currentBalanceWei;
+                        workflowStaticData[lastCheckKey] = new Date().toISOString();
 
                         return {
-                                balance: ethers.formatEther(balance),
-                                balanceWei: balance.toString(),
+                                balance: currentBalance,
+                                balanceWei: currentBalanceWei,
+                                previousBalance: previousBalance,
+                                previousBalanceWei: previousBalanceWei,
+                                balanceChange: balanceChange,
+                                balanceChangeWei: balanceChangeBigInt.toString(),
+                                balanceChanged: balanceChanged,
                                 blockNumber,
                                 currency: 'CLO',
+                                lastCheck: lastCheck,
+                                currentCheck: new Date().toISOString(),
+                                // Additional useful information
+                                isFirstCheck: lastCheck === null,
+                                balanceIncreased: balanceChangeBigInt > 0,
+                                balanceDecreased: balanceChangeBigInt < 0,
                         };
 
                 } catch (error) {
