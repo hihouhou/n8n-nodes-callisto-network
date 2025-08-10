@@ -16,14 +16,14 @@ export class CallistoNetworkApi implements ICredentialType {
 			description: 'The RPC URL for Callisto Network',
 		},
 		{
-			displayName: 'API Key',
-			name: 'apiKey',
+			displayName: 'Private Key',
+			name: 'privateKey',
 			type: 'string',
 			typeOptions: {
 				password: true,
 			},
 			default: '',
-			description: 'Optional API key for enhanced rate limits',
+			description: 'Needed sometime',
 		},
 		{
 			displayName: 'Explorer URL',

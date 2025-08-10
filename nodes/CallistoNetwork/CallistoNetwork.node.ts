@@ -79,6 +79,12 @@ export class CallistoNetwork implements INodeType {
                                                 action: 'Get wallet balance',
                                         },
                                         {
+                                                name: 'Send CLO',
+                                                value: 'sendCLO',
+                                                description: 'Send CLO tokens to another wallet',
+                                                action: 'Send CLO tokens to another wallet',
+                                        },
+                                        {
                                                 name: 'List Available Proposal IDs',
                                                 value: 'listProposalIds',
                                                 description: 'Get list of all available proposal IDs',
@@ -117,7 +123,7 @@ export class CallistoNetwork implements INodeType {
                                 },
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO'],
                                         },
                                 },
                                 default: '',
@@ -142,6 +148,34 @@ export class CallistoNetwork implements INodeType {
                                 default: '0x810059e1406dEDAFd1BdCa4E0137CbA306c0Ce36',
                                 placeholder: '0x810059e1406dEDAFd1BdCa4E0137CbA306c0Ce36',
                                 description: 'The address of the DAO contract',
+                        },
+                        {
+                                displayName: 'Recipient Address',
+                                name: 'recipientAddress',
+                                type: 'string',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['sendCLO'],
+                                        },
+                                },
+                                required: true,
+                                default: '',
+                                placeholder: '0x742d35Cc6634C0532925a3b8D36c4C5c6C69c3c5',
+                                description: 'The recipient wallet address',
+                        },
+                        {
+                                displayName: 'Amount (CLO)',
+                                name: 'amount',
+                                type: 'string',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['sendCLO'],
+                                        },
+                                },
+                                required: true,
+                                default: '',
+                                placeholder: '1.5',
+                                description: 'Amount of CLO to send (e.g., 1.5 for 1.5 CLO)',
                         },
                         {
                                 displayName: 'Proposal ID',
@@ -186,7 +220,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO'],
                                         },
                                 },
                                 default: 150000,
@@ -198,7 +232,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO'],
                                         },
                                 },
                                 default: 20,
@@ -392,6 +426,29 @@ export class CallistoNetwork implements INodeType {
                                                         throw new NodeOperationError(this.getNode(), `Invalid contract address: ${powerContractAddress}`);
                                                 }
                                                 result = await CallistoNetwork.prototype.getVotingPower(provider, walletAddress, powerContractAddress, contractABI, additionalOptions);
+                                                break;
+
+                                        case 'sendCLO':
+                                                const sendPrivateKey = this.getNodeParameter('privateKey', i) as string;
+                                                const recipientAddress = this.getNodeParameter('recipientAddress', i) as string;
+                                                const amount = this.getNodeParameter('amount', i) as string;
+                                                const sendGasLimit = this.getNodeParameter('gasLimit', i, 21000) as number;
+                                                const sendGasPrice = this.getNodeParameter('gasPrice', i, 20) as number;
+
+                                                if (!ethers.isAddress(recipientAddress)) {
+                                                        throw new NodeOperationError(this.getNode(), `Invalid recipient address: ${recipientAddress}`);
+                                                }
+
+                                                result = await CallistoNetwork.prototype.sendCLO(
+                                                        provider,
+                                                        walletAddress,
+                                                        sendPrivateKey,
+                                                        recipientAddress,
+                                                        amount,
+                                                        sendGasLimit,
+                                                        sendGasPrice,
+                                                        additionalOptions
+                                                );
                                                 break;
 
                                         case 'getVoteHistory':
@@ -941,6 +998,80 @@ export class CallistoNetwork implements INodeType {
 
                 } catch (error) {
                         throw new Error(`Failed to get vote history: ${(error as Error).message}`);
+                }
+        }
+        private async sendCLO(
+                provider: ethers.JsonRpcProvider,
+                senderAddress: string,
+                privateKey: string,
+                recipientAddress: string,
+                amount: string,
+                gasLimit: number,
+                gasPrice: number,
+                options: any
+        ): Promise<any> {
+                try {
+                        // Utiliser le provider existant mais créer une nouvelle instance pour les transactions
+                        const txProvider = new ethers.JsonRpcProvider('https://rpc.callistodao.org/', 820); // Directement le chainId
+
+                        const wallet = new ethers.Wallet(privateKey, txProvider);
+
+                        if (wallet.address.toLowerCase() !== senderAddress.toLowerCase()) {
+                                throw new Error('Private key does not match the provided wallet address');
+                        }
+
+                        // Validate amount
+                        let amountWei: bigint;
+                        try {
+                                amountWei = ethers.parseEther(amount);
+                        } catch (error) {
+                                throw new Error(`Invalid amount format: ${amount}`);
+                        }
+
+                        if (amountWei <= BigInt(0)) {
+                                throw new Error('Amount must be greater than 0');
+                        }
+
+                        // Get balance
+                        const senderBalance = await txProvider.getBalance(senderAddress);
+                        const gasCost = BigInt(gasLimit) * ethers.parseUnits(gasPrice.toString(), 'gwei');
+                        const totalCost = amountWei + gasCost;
+
+                        if (senderBalance < totalCost) {
+                                throw new Error(
+                                        `Insufficient balance. Required: ${ethers.formatEther(totalCost)} CLO, ` +
+                                        `Available: ${ethers.formatEther(senderBalance)} CLO`
+                                );
+                        }
+
+                        // Send transaction
+                        const transaction = await wallet.sendTransaction({
+                                to: recipientAddress,
+                                value: amountWei,
+                                gasLimit: gasLimit,
+                                gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+                        });
+
+                        // Wait for confirmation
+                        const receipt = await transaction.wait();
+
+                        return {
+                                success: true,
+                                transactionHash: transaction.hash,
+                                blockNumber: receipt?.blockNumber,
+                                gasUsed: receipt?.gasUsed?.toString(),
+                                from: senderAddress,
+                                to: recipientAddress,
+                                amount: amount,
+                                amountWei: amountWei.toString(),
+                                explorerUrl: `https://explorer.callistodao.org/tx/${transaction.hash}`,
+                                fee: receipt?.gasUsed && receipt?.gasPrice ?
+                                        ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : 'Unknown',
+                        };
+
+                } catch (error) {
+                        console.error('SendCLO Error:', error);
+                        throw new Error(`Failed to send CLO: ${(error as Error).message}`);
                 }
         }
 
