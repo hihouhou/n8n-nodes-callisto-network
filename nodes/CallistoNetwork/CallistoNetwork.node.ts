@@ -115,21 +115,6 @@ export class CallistoNetwork implements INodeType {
                                 },
                         },
                         {
-                                displayName: 'Private Key',
-                                name: 'privateKey',
-                                type: 'string',
-                                typeOptions: {
-                                        password: true,
-                                },
-                                displayOptions: {
-                                        show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO'],
-                                        },
-                                },
-                                default: '',
-                                description: 'Private key for signing transactions (keep secure)',
-                        },
-                        {
                                 displayName: 'RPC URL',
                                 name: 'rpcUrl',
                                 type: 'string',
@@ -429,11 +414,12 @@ export class CallistoNetwork implements INodeType {
                                                 break;
 
                                         case 'sendCLO':
-                                                const sendPrivateKey = this.getNodeParameter('privateKey', i) as string;
+                                                const credentials = await this.getCredentials('callistoNetworkApi');
+                                                const sendPrivateKey = credentials.privateKey as string;
                                                 const recipientAddress = this.getNodeParameter('recipientAddress', i) as string;
                                                 const amount = this.getNodeParameter('amount', i) as string;
                                                 const sendGasLimit = this.getNodeParameter('gasLimit', i, 21000) as number;
-                                                const sendGasPrice = this.getNodeParameter('gasPrice', i, 20) as number;
+                                                const sendGasPriceGwei = this.getNodeParameter('gasPrice', i, 1001) as number;
 
                                                 if (!ethers.isAddress(recipientAddress)) {
                                                         throw new NodeOperationError(this.getNode(), `Invalid recipient address: ${recipientAddress}`);
@@ -446,7 +432,7 @@ export class CallistoNetwork implements INodeType {
                                                         recipientAddress,
                                                         amount,
                                                         sendGasLimit,
-                                                        sendGasPrice,
+                                                        sendGasPriceGwei,
                                                         additionalOptions
                                                 );
                                                 break;
@@ -1011,10 +997,7 @@ export class CallistoNetwork implements INodeType {
                 options: any
         ): Promise<any> {
                 try {
-                        // Utiliser le provider existant mais créer une nouvelle instance pour les transactions
-                        const txProvider = new ethers.JsonRpcProvider('https://rpc.callistodao.org/', 820); // Directement le chainId
-
-                        const wallet = new ethers.Wallet(privateKey, txProvider);
+                        const wallet = new ethers.Wallet(privateKey, provider);
 
                         if (wallet.address.toLowerCase() !== senderAddress.toLowerCase()) {
                                 throw new Error('Private key does not match the provided wallet address');
@@ -1033,7 +1016,7 @@ export class CallistoNetwork implements INodeType {
                         }
 
                         // Get balance
-                        const senderBalance = await txProvider.getBalance(senderAddress);
+                        const senderBalance = await provider.getBalance(senderAddress);
                         const gasCost = BigInt(gasLimit) * ethers.parseUnits(gasPrice.toString(), 'gwei');
                         const totalCost = amountWei + gasCost;
 
