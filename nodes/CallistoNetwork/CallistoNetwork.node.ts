@@ -55,8 +55,8 @@ export class CallistoNetwork implements INodeType {
                                                 action: 'Vote on a DAO proposal',
                                         },
                                         {
-                                                name: 'Get Active Proposals',
-                                                value: 'getActiveProposals',
+                                                name: 'Get Active Proposals DAO',
+                                                value: 'getActiveProposalsDao',
                                                 description: 'Get list of active proposals',
                                                 action: 'Get active proposals',
                                         },
@@ -90,8 +90,20 @@ export class CallistoNetwork implements INodeType {
                                                 description: 'Get list of all available proposal IDs',
                                                 action: 'Get available proposal IDs',
                                         },
+                                        {
+                                                name: 'Check Cold Staking Rewards',
+                                                value: 'checkColdStakingRewards',
+                                                description: 'Check available cold staking rewards for a wallet',
+                                                action: 'Check cold staking rewards',
+                                        },
+                                        {
+                                                name: 'Claim Cold Staking Rewards',
+                                                value: 'claimColdStakingRewards',
+                                                description: 'Claim available cold staking rewards',
+                                                action: 'Claim cold staking rewards',
+                                        },
                                 ],
-                                default: 'getActiveProposals',
+                                default: 'getActiveProposalsDao',
                         },
                         {
                                 displayName: 'Wallet Address',
@@ -127,7 +139,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'string',
                                 displayOptions: {
                                         show: {
-                                                operation: ['checkClaims', 'executeClaim', 'getVoteHistory', 'voteOnProposal', 'getActiveProposals', 'getProposalDetails', 'getVotingPower', 'listProposalIds'],
+                                                operation: ['checkClaims', 'executeClaim', 'getVoteHistory', 'voteOnProposal', 'getActiveProposalsDao', 'getProposalDetails', 'getVotingPower', 'listProposalIds'],
                                         },
                                 },
                                 default: '0x810059e1406dEDAFd1BdCa4E0137CbA306c0Ce36',
@@ -296,6 +308,33 @@ export class CallistoNetwork implements INodeType {
                         {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"vote","inputs":[{"type":"uint256","name":"_id","internalType":"uint256"},{"type":"bool","name":"_answer","internalType":"bool"}]}
                 ];
 
+                // Cold Staking ABI from your provided data
+//                const coldStakingABI = [
+//                        {"type":"event","name":"Claim","inputs":[{"type":"address","name":"staker","internalType":"address","indexed":false},{"type":"uint256","name":"reward","internalType":"uint256","indexed":false}],"anonymous":false},
+//                        {"type":"event","name":"DonationDeposited","inputs":[{"type":"address","name":"_address","internalType":"address","indexed":false},{"type":"uint256","name":"value","internalType":"uint256","indexed":false}],"anonymous":false},
+//                        {"type":"event","name":"StartStaking","inputs":[{"type":"address","name":"addr","internalType":"address","indexed":false},{"type":"uint256","name":"value","internalType":"uint256","indexed":false},{"type":"uint256","name":"amount","internalType":"uint256","indexed":false},{"type":"uint256","name":"time","internalType":"uint256","indexed":false},{"type":"uint256","name":"end_time","internalType":"uint256","indexed":false}],"anonymous":false},
+//                        {"type":"event","name":"WithdrawStake","inputs":[{"type":"address","name":"staker","internalType":"address","indexed":false},{"type":"uint256","name":"amount","internalType":"uint256","indexed":false}],"anonymous":false},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"BlockStartStaking","inputs":[]},
+//                        {"type":"function","stateMutability":"payable","outputs":[],"name":"DEBUG_donation","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"LastBlock","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"StakingRewardPool","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"Timestamp","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"TotalStakingAmount","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"TotalStakingWeight","inputs":[]},
+//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"claim","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"max_delay","inputs":[]},
+//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"report_abuse","inputs":[{"type":"address","name":"_addr","internalType":"address payable"}]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"round_interval","inputs":[]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"_reward","internalType":"uint256"}],"name":"stake_reward","inputs":[{"type":"address","name":"_addr","internalType":"address"}]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"amount","internalType":"uint256"},{"type":"uint256","name":"time","internalType":"uint256"},{"type":"uint256","name":"multiplier","internalType":"uint256"},{"type":"uint256","name":"end_time","internalType":"uint256"}],"name":"staker","inputs":[{"type":"address","name":"","internalType":"address"}]},
+//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"staking_threshold","inputs":[]},
+//                        {"type":"function","stateMutability":"payable","outputs":[],"name":"start_staking","inputs":[]},
+//                        {"type":"function","stateMutability":"payable","outputs":[],"name":"start_staking","inputs":[{"type":"uint256","name":"rounds","internalType":"uint256"}]},
+//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[{"type":"address","name":"user","internalType":"address payable"}]},
+//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[]},
+//                        {"type":"receive","stateMutability":"payable"}
+//                ];
+
                 for (let i = 0; i < items.length; i++) {
                         try {
                                 const operation = this.getNodeParameter('operation', i) as string;
@@ -314,12 +353,12 @@ export class CallistoNetwork implements INodeType {
                                 let result: any = {};
 
                                 switch (operation) {
-                                        case 'getActiveProposals':
+                                        case 'getActiveProposalsDao':
                                                 const proposalsContractAddress = this.getNodeParameter('contractAddress', i) as string;
                                                 if (!ethers.isAddress(proposalsContractAddress)) {
                                                         throw new NodeOperationError(this.getNode(), `Invalid contract address: ${proposalsContractAddress}`);
                                                 }
-                                                result = await CallistoNetwork.prototype.getActiveProposals(provider, proposalsContractAddress, contractABI, additionalOptions);
+                                                result = await CallistoNetwork.prototype.getActiveProposalsDao(provider, proposalsContractAddress, contractABI, additionalOptions);
                                                 break;
 
                                         case 'getProposalDetails':
@@ -480,7 +519,7 @@ export class CallistoNetwork implements INodeType {
         }
 
         // Get active proposals - FIXED to use correct ABI
-        private async getActiveProposals(
+        private async getActiveProposalsDao(
                 provider: ethers.JsonRpcProvider,
                 contractAddress: string,
                 contractABI: any[],
@@ -688,7 +727,7 @@ export class CallistoNetwork implements INodeType {
                                 id: proposalId,
                                 exists: false,
                                 error: (error as Error).message,
-                                suggestion: 'Try checking available proposal IDs with getActiveProposals first',
+                                suggestion: 'Try checking available proposal IDs with getActiveProposalsDao first',
                         };
                 }
         }
