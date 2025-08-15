@@ -147,6 +147,19 @@ export class CallistoNetwork implements INodeType {
                                 description: 'The address of the DAO contract',
                         },
                         {
+                                displayName: 'Cold Staking Contract Address',
+                                name: 'coldStakingContractAddress',
+                                type: 'string',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['checkColdStakingRewards', 'claimColdStakingRewards', 'getColdStakingInfo', 'listenColdStakingEvents'],
+                                        },
+                                },
+                                default: '0x08A7c8be47773546DC5E173d67B0c38AfFfa4b84',
+                                placeholder: '0x...',
+                                description: 'The address of the Cold Staking contract',
+                        },
+                        {
                                 displayName: 'Recipient Address',
                                 name: 'recipientAddress',
                                 type: 'string',
@@ -217,7 +230,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards'],
                                         },
                                 },
                                 default: 150000,
@@ -229,7 +242,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards'],
                                         },
                                 },
                                 default: 20,
@@ -309,31 +322,31 @@ export class CallistoNetwork implements INodeType {
                 ];
 
                 // Cold Staking ABI from your provided data
-//                const coldStakingABI = [
-//                        {"type":"event","name":"Claim","inputs":[{"type":"address","name":"staker","internalType":"address","indexed":false},{"type":"uint256","name":"reward","internalType":"uint256","indexed":false}],"anonymous":false},
-//                        {"type":"event","name":"DonationDeposited","inputs":[{"type":"address","name":"_address","internalType":"address","indexed":false},{"type":"uint256","name":"value","internalType":"uint256","indexed":false}],"anonymous":false},
-//                        {"type":"event","name":"StartStaking","inputs":[{"type":"address","name":"addr","internalType":"address","indexed":false},{"type":"uint256","name":"value","internalType":"uint256","indexed":false},{"type":"uint256","name":"amount","internalType":"uint256","indexed":false},{"type":"uint256","name":"time","internalType":"uint256","indexed":false},{"type":"uint256","name":"end_time","internalType":"uint256","indexed":false}],"anonymous":false},
-//                        {"type":"event","name":"WithdrawStake","inputs":[{"type":"address","name":"staker","internalType":"address","indexed":false},{"type":"uint256","name":"amount","internalType":"uint256","indexed":false}],"anonymous":false},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"BlockStartStaking","inputs":[]},
-//                        {"type":"function","stateMutability":"payable","outputs":[],"name":"DEBUG_donation","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"LastBlock","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"StakingRewardPool","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"Timestamp","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"TotalStakingAmount","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"TotalStakingWeight","inputs":[]},
-//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"claim","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"max_delay","inputs":[]},
-//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"report_abuse","inputs":[{"type":"address","name":"_addr","internalType":"address payable"}]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"round_interval","inputs":[]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"_reward","internalType":"uint256"}],"name":"stake_reward","inputs":[{"type":"address","name":"_addr","internalType":"address"}]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"amount","internalType":"uint256"},{"type":"uint256","name":"time","internalType":"uint256"},{"type":"uint256","name":"multiplier","internalType":"uint256"},{"type":"uint256","name":"end_time","internalType":"uint256"}],"name":"staker","inputs":[{"type":"address","name":"","internalType":"address"}]},
-//                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"staking_threshold","inputs":[]},
-//                        {"type":"function","stateMutability":"payable","outputs":[],"name":"start_staking","inputs":[]},
-//                        {"type":"function","stateMutability":"payable","outputs":[],"name":"start_staking","inputs":[{"type":"uint256","name":"rounds","internalType":"uint256"}]},
-//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[{"type":"address","name":"user","internalType":"address payable"}]},
-//                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[]},
-//                        {"type":"receive","stateMutability":"payable"}
-//                ];
+                const coldStakingABI = [
+                        {"type":"event","name":"Claim","inputs":[{"type":"address","name":"staker","internalType":"address","indexed":false},{"type":"uint256","name":"reward","internalType":"uint256","indexed":false}],"anonymous":false},
+                        {"type":"event","name":"DonationDeposited","inputs":[{"type":"address","name":"_address","internalType":"address","indexed":false},{"type":"uint256","name":"value","internalType":"uint256","indexed":false}],"anonymous":false},
+                        {"type":"event","name":"StartStaking","inputs":[{"type":"address","name":"addr","internalType":"address","indexed":false},{"type":"uint256","name":"value","internalType":"uint256","indexed":false},{"type":"uint256","name":"amount","internalType":"uint256","indexed":false},{"type":"uint256","name":"time","internalType":"uint256","indexed":false},{"type":"uint256","name":"end_time","internalType":"uint256","indexed":false}],"anonymous":false},
+                        {"type":"event","name":"WithdrawStake","inputs":[{"type":"address","name":"staker","internalType":"address","indexed":false},{"type":"uint256","name":"amount","internalType":"uint256","indexed":false}],"anonymous":false},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"BlockStartStaking","inputs":[]},
+                        {"type":"function","stateMutability":"payable","outputs":[],"name":"DEBUG_donation","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"LastBlock","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"StakingRewardPool","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"Timestamp","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"TotalStakingAmount","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"TotalStakingWeight","inputs":[]},
+                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"claim","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"max_delay","inputs":[]},
+                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"report_abuse","inputs":[{"type":"address","name":"_addr","internalType":"address payable"}]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"round_interval","inputs":[]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"_reward","internalType":"uint256"}],"name":"stake_reward","inputs":[{"type":"address","name":"_addr","internalType":"address"}]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"amount","internalType":"uint256"},{"type":"uint256","name":"time","internalType":"uint256"},{"type":"uint256","name":"multiplier","internalType":"uint256"},{"type":"uint256","name":"end_time","internalType":"uint256"}],"name":"staker","inputs":[{"type":"address","name":"","internalType":"address"}]},
+                        {"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"staking_threshold","inputs":[]},
+                        {"type":"function","stateMutability":"payable","outputs":[],"name":"start_staking","inputs":[]},
+                        {"type":"function","stateMutability":"payable","outputs":[],"name":"start_staking","inputs":[{"type":"uint256","name":"rounds","internalType":"uint256"}]},
+                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[{"type":"address","name":"user","internalType":"address payable"}]},
+                        {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[]},
+                        {"type":"receive","stateMutability":"payable"}
+                ];
 
                 for (let i = 0; i < items.length; i++) {
                         try {
@@ -453,8 +466,8 @@ export class CallistoNetwork implements INodeType {
                                                 break;
 
                                         case 'sendCLO':
-                                                const credentials = await this.getCredentials('callistoNetworkApi');
-                                                const sendPrivateKey = credentials.privateKey as string;
+                                                const sendCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const sendPrivateKey = sendCredentials.privateKey as string;
                                                 const recipientAddress = this.getNodeParameter('recipientAddress', i) as string;
                                                 const amount = this.getNodeParameter('amount', i) as string;
                                                 const sendGasLimit = this.getNodeParameter('gasLimit', i, 21000) as number;
@@ -482,6 +495,36 @@ export class CallistoNetwork implements INodeType {
                                                         throw new NodeOperationError(this.getNode(), `Invalid contract address: ${historyContractAddress}`);
                                                 }
                                                 result = await CallistoNetwork.prototype.getVoteHistory(provider, walletAddress, historyContractAddress, contractABI, additionalOptions);
+                                                break;
+                                        case 'checkColdStakingRewards':
+                                                const coldStakingRewardsAddress = this.getNodeParameter('coldStakingContractAddress', i) as string;
+                                                if (!ethers.isAddress(coldStakingRewardsAddress)) {
+                                                        throw new NodeOperationError(this.getNode(), `Invalid cold staking contract address: ${coldStakingRewardsAddress}`);
+                                                }
+                                                result = await CallistoNetwork.prototype.checkColdStakingRewards(provider, walletAddress, coldStakingRewardsAddress, coldStakingABI, additionalOptions);
+                                                break;
+
+                                        case 'claimColdStakingRewards':
+                                                const claimColdStakingAddress = this.getNodeParameter('coldStakingContractAddress', i) as string;
+                                                const claimCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const claimPrivateKey = claimCredentials.privateKey as string;
+                                                const claimGasLimit = this.getNodeParameter('gasLimit', i) as number;
+                                                const claimGasPrice = this.getNodeParameter('gasPrice', i) as number;
+
+                                                if (!ethers.isAddress(claimColdStakingAddress)) {
+                                                        throw new NodeOperationError(this.getNode(), `Invalid cold staking contract address: ${claimColdStakingAddress}`);
+                                                }
+
+                                                result = await CallistoNetwork.prototype.claimColdStakingRewards(
+                                                        provider,
+                                                        walletAddress,
+                                                        claimColdStakingAddress,
+                                                        coldStakingABI,
+                                                        claimPrivateKey,
+                                                        claimGasLimit,
+                                                        claimGasPrice,
+                                                        additionalOptions
+                                                );
                                                 break;
 
                                         default:
@@ -516,6 +559,121 @@ export class CallistoNetwork implements INodeType {
                 }
 
                 return [returnData];
+        }
+
+        // NEW: Check Cold Staking Rewards
+        private async checkColdStakingRewards(
+                provider: ethers.JsonRpcProvider,
+                walletAddress: string,
+                contractAddress: string,
+                contractABI: any[],
+                options: any
+        ): Promise<any> {
+                const contract = new ethers.Contract(contractAddress, contractABI, provider);
+
+                try {
+                        // Get current rewards
+                        const reward = await contract.stake_reward(walletAddress);
+
+                        // Get staker information
+                        const stakerInfo = await contract.staker(walletAddress);
+                        const [amount, time, multiplier, endTime] = stakerInfo;
+
+                        // Get pool information
+                        const [rewardPool, totalStaking] = await Promise.all([
+                                contract.StakingRewardPool(),
+                                contract.TotalStakingAmount()
+                        ]);
+
+                        const now = Math.floor(Date.now() / 1000);
+                        const isActive = amount > BigInt(0);
+                        const isMatured = Number(endTime) <= now && isActive;
+
+                        return {
+                                walletAddress,
+                                contractAddress,
+                                reward: ethers.formatEther(reward),
+                                rewardWei: reward.toString(),
+                                hasRewards: reward > BigInt(0),
+                                stakingAmount: ethers.formatEther(amount),
+                                stakingAmountWei: amount.toString(),
+                                multiplier: Number(multiplier),
+                                startTime: time > BigInt(0) ? new Date(Number(time) * 1000).toISOString() : null,
+                                endTime: endTime > BigInt(0) ? new Date(Number(endTime) * 1000).toISOString() : null,
+                                isActive,
+                                isMatured,
+                                canClaim: reward > BigInt(0),
+                                poolInfo: {
+                                        rewardPool: ethers.formatEther(rewardPool),
+                                        totalStaking: ethers.formatEther(totalStaking),
+                                },
+                        };
+
+                } catch (error) {
+                        throw new Error(`Failed to check cold staking rewards: ${(error as Error).message}`);
+                }
+        }
+
+        // NEW: Claim Cold Staking Rewards
+        private async claimColdStakingRewards(
+                provider: ethers.JsonRpcProvider,
+                walletAddress: string,
+                contractAddress: string,
+                contractABI: any[],
+                privateKey: string,
+                gasLimit: number,
+                gasPrice: number,
+                options: any
+        ): Promise<any> {
+                try {
+                        const wallet = new ethers.Wallet(privateKey, provider);
+
+                        if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
+                                throw new Error('Private key does not match the provided wallet address');
+                        }
+
+                        const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+
+                        // Check current rewards before claiming
+                        const rewardBefore = await contract.stake_reward(walletAddress);
+
+                        if (rewardBefore === BigInt(0)) {
+                                return {
+                                        success: false,
+                                        message: 'No rewards available to claim',
+                                        rewardBefore: '0',
+                                };
+                        }
+
+                        // Prepare transaction options
+                        const txOptions = {
+                                gasLimit: gasLimit,
+                                gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+                        };
+
+                        // Execute claim
+                        const tx = await contract.claim(txOptions);
+                        const receipt = await tx.wait();
+
+                        // Check rewards after claiming
+                        const rewardAfter = await contract.stake_reward(walletAddress);
+
+                        return {
+                                success: true,
+                                transactionHash: tx.hash,
+                                blockNumber: receipt?.blockNumber,
+                                gasUsed: receipt?.gasUsed?.toString(),
+                                rewardBefore: ethers.formatEther(rewardBefore),
+                                rewardAfter: ethers.formatEther(rewardAfter),
+                                rewardClaimed: ethers.formatEther(rewardBefore - rewardAfter),
+                                explorerUrl: `https://explorer.callistodao.org/tx/${tx.hash}`,
+                                fee: receipt?.gasUsed && receipt?.gasPrice ?
+                                        ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : 'Unknown',
+                        };
+
+                } catch (error) {
+                        throw new Error(`Failed to claim cold staking rewards: ${(error as Error).message}`);
+                }
         }
 
         // Get active proposals - FIXED to use correct ABI
