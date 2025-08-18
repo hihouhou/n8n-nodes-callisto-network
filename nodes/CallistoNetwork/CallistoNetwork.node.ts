@@ -102,6 +102,30 @@ export class CallistoNetwork implements INodeType {
                                                 description: 'Claim available cold staking rewards',
                                                 action: 'Claim cold staking rewards',
                                         },
+					{
+						name: 'Create Order',
+						value: 'createOrder',
+						description: 'Create a new order on 2Bears',
+						action: 'Create a new order on 2Bears',
+					},
+					{
+						name: 'Cancel Order',
+						value: 'cancelOrder',
+						description: 'Cancel an existing order on 2Bears',
+						action: 'Cancel an existing order on 2Bears',
+					},
+					{
+						name: 'Get Open Orders',
+						value: 'getOpenOrders',
+						description: 'Get a list of open orders for a wallet on 2Bears',
+						action: 'Get a list of open orders for a wallet on 2Bears',
+					},
+					{
+						name: 'Get Order Book',
+						value: 'getOrderBook',
+						description: 'Get the order book for a token pair on 2Bears',
+						action: 'Get the order book for a token pair on 2Bears',
+					},
                                 ],
                                 default: 'getActiveProposalsDao',
                         },
@@ -158,6 +182,19 @@ export class CallistoNetwork implements INodeType {
                                 default: '0x08A7c8be47773546DC5E173d67B0c38AfFfa4b84',
                                 placeholder: '0x...',
                                 description: 'The address of the Cold Staking contract',
+                        },
+                        {
+                                displayName: '2Bears Order Contract Address',
+                                name: 'twoBearsOrderContractAddress',
+                                type: 'string',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['createOrder', 'cancelOrder', 'getOpenOrders', 'getOrderBook'],
+                                        },
+                                },
+                                default: '0x1635a5bBf111742f7eBB95950714494a17FC14cb',
+                                placeholder: '0x...',
+                                description: 'The address of the 2Bears Order contract',
                         },
                         {
                                 displayName: 'Recipient Address',
@@ -230,10 +267,10 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder'],
                                         },
                                 },
-                                default: 150000,
+                                default: 21000,
                                 description: 'Gas limit for the transaction',
                         },
                         {
@@ -242,12 +279,121 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder'],
                                         },
                                 },
-                                default: 20,
+                                default: 1001,
                                 description: 'Gas price in Gwei',
                         },
+			{
+				displayName: 'Token In',
+				name: 'tokenIn',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['createOrder', 'getOrderBook', 'getOpenOrders'],
+					},
+				},
+				default: '',
+				placeholder: '0x...',
+				description: 'The address of the token you are selling',
+			},
+			{
+				displayName: 'Token Out',
+				name: 'tokenOut',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['createOrder', 'getOrderBook', 'getOpenOrders'],
+					},
+				},
+				default: '',
+				placeholder: '0x...',
+				description: 'The address of the token you are buying',
+			},
+			{
+				displayName: 'Amount To Sell',
+				name: 'amountIn',
+				type: 'number',
+				displayOptions: {
+					show: {
+						operation: ['createOrder'],
+					},
+				},
+				default: 0,
+				description: 'The amount of tokens you are selling',
+			},
+			{
+				displayName: 'Amount To Buy',
+				name: 'amountOut',
+				type: 'number',
+				displayOptions: {
+					show: {
+						operation: ['createOrder'],
+					},
+				},
+				default: 0,
+				description: 'The amount of tokens you are buying',
+			},
+			{
+				displayName: 'Price',
+				name: 'price',
+				type: 'number',
+				displayOptions: {
+					show: {
+						operation: ['createOrder'],
+					},
+				},
+				default: 0,
+				description: 'The price of the order',
+			},
+			{
+				displayName: 'Order Type',
+				name: 'orderType',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['createOrder'],
+					},
+				},
+				options: [
+					{
+						name: 'Sell',
+						value: 1,
+					},
+					{
+						name: 'Buy',
+						value: 2,
+					},
+				],
+				default: 1,
+				description: 'The type of the order',
+			},
+			{
+				displayName: 'Order IDs',
+				name: 'orderIds',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['cancelOrder'],
+					},
+				},
+				default: '',
+				placeholder: '1,2,3',
+				description: 'A comma-separated list of order IDs to cancel',
+			},
+			{
+				displayName: 'Amount',
+				name: 'amount',
+				type: 'number',
+				displayOptions: {
+					show: {
+						operation: ['getOpenOrders', 'getOrderBook'],
+					},
+				},
+				default: 10,
+				description: 'The number of orders to fetch',
+			},
                         {
                                 displayName: 'Additional Options',
                                 name: 'additionalOptions',
@@ -347,6 +493,8 @@ export class CallistoNetwork implements INodeType {
                         {"type":"function","stateMutability":"nonpayable","outputs":[],"name":"withdraw_stake","inputs":[]},
                         {"type":"receive","stateMutability":"payable"}
                 ];
+
+		const twoBearsOrdersABI = [{"type":"event","name":"CancelOrder","inputs":[{"type":"uint256","name":"ID","internalType":"uint256","indexed":true}],"anonymous":false},{"type":"event","name":"CreateOrder","inputs":[{"type":"uint256","name":"ID","internalType":"uint256","indexed":true}],"anonymous":false},{"type":"event","name":"DeleteOrder","inputs":[{"type":"uint256","name":"ID","internalType":"uint256","indexed":true}],"anonymous":false},{"type":"event","name":"ExecutableOrder","inputs":[{"type":"uint256","name":"ID","internalType":"uint256","indexed":true}],"anonymous":false},{"type":"function","stateMutability":"nonpayable","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"cancelOrders","inputs":[{"type":"uint256[]","name":"_id_arr","internalType":"uint256[]"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"address","name":"","internalType":"address"}],"name":"contractDeposits","inputs":[]},{"type":"function","stateMutability":"nonpayable","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"createOrder","inputs":[{"type":"address","name":"_owner","internalType":"address"},{"type":"address","name":"_token_in","internalType":"address"},{"type":"uint256","name":"_value_in","internalType":"uint256"},{"type":"address","name":"_token_out","internalType":"address"},{"type":"uint256","name":"_value_out","internalType":"uint256"},{"type":"uint8","name":"_order_type","internalType":"uint8"},{"type":"uint256","name":"_price","internalType":"uint256"},{"type":"uint256","name":"_order_position","internalType":"uint256"},{"type":"uint256","name":"_dex_fee","internalType":"uint256"},{"type":"uint256","name":"_dex_num_exec_ord","internalType":"uint256"}]},{"type":"function","stateMutability":"nonpayable","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"deleteCloseOrders","inputs":[{"type":"uint256[]","name":"_id_arr","internalType":"uint256[]"}]},{"type":"function","stateMutability":"nonpayable","outputs":[],"name":"deleteGlobalOrders","inputs":[{"type":"uint256[]","name":"_id_arr","internalType":"uint256[]"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getAllOpenOrders","inputs":[{"type":"address","name":"_owner","internalType":"address"},{"type":"uint256","name":"_id","internalType":"uint256"},{"type":"uint256","name":"_amount","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getCloseOrders","inputs":[{"type":"address","name":"_token1","internalType":"address"},{"type":"address","name":"_token2","internalType":"address"},{"type":"address","name":"_owner","internalType":"address"},{"type":"uint256","name":"_id","internalType":"uint256"},{"type":"uint256","name":"_amount","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getCloseOrdersOracle","inputs":[{"type":"address","name":"_token1","internalType":"address"},{"type":"address","name":"_token2","internalType":"address"},{"type":"address","name":"_owner","internalType":"address"},{"type":"uint256","name":"_id","internalType":"uint256"},{"type":"uint256","name":"_amount","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getExecOrderBook","inputs":[{"type":"address","name":"_token1","internalType":"address"},{"type":"address","name":"_token2","internalType":"address"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getLockedTokensForOracle","inputs":[{"type":"uint256","name":"_id1","internalType":"uint256"},{"type":"uint256","name":"_id2","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getOpenOrders","inputs":[{"type":"address","name":"_token1","internalType":"address"},{"type":"address","name":"_token2","internalType":"address"},{"type":"address","name":"_owner","internalType":"address"},{"type":"uint256","name":"_id","internalType":"uint256"},{"type":"uint256","name":"_amount","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getOrderBook","inputs":[{"type":"address","name":"_token_in","internalType":"address"},{"type":"address","name":"_token_out","internalType":"address"},{"type":"uint256","name":"_amount","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"tuple","name":"","internalType":"struct TwoBearsOrders.Orders","components":[{"type":"uint256","name":"time","internalType":"uint256"},{"type":"uint256","name":"commission","internalType":"uint256"},{"type":"uint256","name":"value_in","internalType":"uint256"},{"type":"uint256","name":"price","internalType":"uint256"},{"type":"uint256","name":"value_out","internalType":"uint256"},{"type":"uint256","name":"exec_in","internalType":"uint256"},{"type":"uint256","name":"exec_out","internalType":"uint256"},{"type":"address","name":"token_in","internalType":"address"},{"type":"address","name":"token_out","internalType":"address"},{"type":"address","name":"owner","internalType":"address"},{"type":"uint8","name":"order_type","internalType":"uint8"},{"type":"uint8","name":"order_status","internalType":"uint8"}]}],"name":"getOrderByID","inputs":[{"type":"uint256","name":"_id","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"getOrderDataForOracle","inputs":[{"type":"uint256","name":"_id","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256[]","name":"","internalType":"uint256[]"}],"name":"get_ID_and_Prices_from_OrderBook","inputs":[{"type":"address","name":"_token_in","internalType":"address"},{"type":"address","name":"_token_out","internalType":"address"},{"type":"uint256","name":"_id_start","internalType":"uint256"},{"type":"uint256","name":"_amount","internalType":"uint256"}]},{"type":"function","stateMutability":"view","outputs":[{"type":"uint256","name":"","internalType":"uint256"}],"name":"id","inputs":[]},{"type":"function","stateMutability":"view","outputs":[{"type":"address","name":"","internalType":"address"}],"name":"owner","inputs":[]}];
 
                 for (let i = 0; i < items.length; i++) {
                         try {
@@ -526,6 +674,107 @@ export class CallistoNetwork implements INodeType {
                                                         additionalOptions
                                                 );
                                                 break;
+					case 'createOrder':
+						const createOrderContractAddress = this.getNodeParameter('twoBearsOrderContractAddress', i) as string;
+                                                const createOrderCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const createOrderPrivateKey = createOrderCredentials.privateKey as string;
+						const tokenIn = this.getNodeParameter('tokenIn', i) as string;
+						const amountIn = this.getNodeParameter('amountIn', i) as number;
+						const tokenOut = this.getNodeParameter('tokenOut', i) as string;
+						const amountOut = this.getNodeParameter('amountOut', i) as number;
+						const price = this.getNodeParameter('price', i) as number;
+						const orderType = this.getNodeParameter('orderType', i) as number;
+						const createOrderGasLimit = this.getNodeParameter('gasLimit', i) as number;
+						const createOrderGasPrice = this.getNodeParameter('gasPrice', i) as number;
+
+						if (!ethers.isAddress(createOrderContractAddress)) {
+							throw new NodeOperationError(this.getNode(), `Invalid contract address: ${createOrderContractAddress}`);
+						}
+
+						result = await CallistoNetwork.prototype.createOrder(
+							provider,
+							walletAddress,
+							createOrderContractAddress,
+							twoBearsOrdersABI,
+							createOrderPrivateKey,
+							tokenIn,
+							amountIn,
+							tokenOut,
+							amountOut,
+							price,
+							orderType,
+							createOrderGasLimit,
+							createOrderGasPrice,
+							additionalOptions
+						);
+						break;
+
+					case 'cancelOrder':
+						const cancelOrderContractAddress = this.getNodeParameter('twoBearsOrderContractAddress', i) as string;
+						const cancelOrderPrivateKey = this.getNodeParameter('privateKey', i) as string;
+						const orderIds = this.getNodeParameter('orderIds', i) as string;
+						const cancelOrderGasLimit = this.getNodeParameter('gasLimit', i) as number;
+						const cancelOrderGasPrice = this.getNodeParameter('gasPrice', i) as number;
+
+						if (!ethers.isAddress(cancelOrderContractAddress)) {
+							throw new NodeOperationError(this.getNode(), `Invalid contract address: ${cancelOrderContractAddress}`);
+						}
+
+						result = await CallistoNetwork.prototype.cancelOrder(
+							provider,
+							walletAddress,
+							cancelOrderContractAddress,
+							twoBearsOrdersABI,
+							cancelOrderPrivateKey,
+							orderIds,
+							cancelOrderGasLimit,
+							cancelOrderGasPrice,
+							additionalOptions
+						);
+						break;
+
+					case 'getOpenOrders':
+						const getOpenOrdersContractAddress = this.getNodeParameter('twoBearsOrderContractAddress', i) as string;
+						const openOrdersTokenIn = this.getNodeParameter('tokenIn', i) as string;
+						const openOrdersTokenOut = this.getNodeParameter('tokenOut', i) as string;
+						const openOrdersAmount = this.getNodeParameter('amount', i) as number;
+
+						if (!ethers.isAddress(getOpenOrdersContractAddress)) {
+							throw new NodeOperationError(this.getNode(), `Invalid contract address: ${getOpenOrdersContractAddress}`);
+						}
+
+						result = await CallistoNetwork.prototype.getOpenOrders(
+							provider,
+							walletAddress,
+							getOpenOrdersContractAddress,
+							twoBearsOrdersABI,
+							openOrdersTokenIn,
+							openOrdersTokenOut,
+							openOrdersAmount,
+							additionalOptions
+						);
+						break;
+
+					case 'getOrderBook':
+						const getOrderBookContractAddress = this.getNodeParameter('twoBearsOrderContractAddress', i) as string;
+						const orderBookTokenIn = this.getNodeParameter('tokenIn', i) as string;
+						const orderBookTokenOut = this.getNodeParameter('tokenOut', i) as string;
+						const orderBookAmount = this.getNodeParameter('amount', i) as number;
+
+						if (!ethers.isAddress(getOrderBookContractAddress)) {
+							throw new NodeOperationError(this.getNode(), `Invalid contract address: ${getOrderBookContractAddress}`);
+						}
+
+						result = await CallistoNetwork.prototype.getOrderBook(
+							provider,
+							getOrderBookContractAddress,
+							twoBearsOrdersABI,
+							orderBookTokenIn,
+							orderBookTokenOut,
+							orderBookAmount,
+							additionalOptions
+						);
+						break;
 
                                         default:
                                                 throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
@@ -1314,4 +1563,150 @@ export class CallistoNetwork implements INodeType {
                         throw new Error(`Failed to get balance: ${(error as Error).message}`);
                 }
         }
+
+	private async createOrder(
+		provider: ethers.JsonRpcProvider,
+		walletAddress: string,
+		contractAddress: string,
+		contractABI: any[],
+		privateKey: string,
+		tokenIn: string,
+		amountIn: number,
+		tokenOut: string,
+		amountOut: number,
+		price: number,
+		orderType: number,
+		gasLimit: number,
+		gasPrice: number,
+		options: any
+	): Promise<any> {
+		try {
+			const wallet = new ethers.Wallet(privateKey, provider);
+
+			if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
+				throw new Error('Private key does not match the provided wallet address');
+			}
+
+			const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+
+			const txOptions = {
+				gasLimit: gasLimit,
+				gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+			};
+
+			const tx = await contract.createOrder(
+				walletAddress,
+				tokenIn,
+				ethers.parseEther(amountIn.toString()),
+				tokenOut,
+				ethers.parseEther(amountOut.toString()),
+				orderType,
+				ethers.parseEther(price.toString()),
+				0, // _order_position
+				1, // _dex_fee
+				100, // _dex_num_exec_ord
+				txOptions
+			);
+
+			const receipt = await tx.wait();
+
+			return {
+				success: true,
+				transactionHash: tx.hash,
+				blockNumber: receipt?.blockNumber,
+				gasUsed: receipt?.gasUsed.toString(),
+				explorerUrl: `https://explorer.callistodao.org/tx/${tx.hash}`,
+			};
+
+		} catch (error) {
+			throw new Error(`Failed to create order: ${(error as Error).message}`);
+		}
+	}
+
+	private async cancelOrder(
+		provider: ethers.JsonRpcProvider,
+		walletAddress: string,
+		contractAddress: string,
+		contractABI: any[],
+		privateKey: string,
+		orderIds: string,
+		gasLimit: number,
+		gasPrice: number,
+		options: any
+	): Promise<any> {
+		try {
+			const wallet = new ethers.Wallet(privateKey, provider);
+
+			if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
+				throw new Error('Private key does not match the provided wallet address');
+			}
+
+			const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+
+			const txOptions = {
+				gasLimit: gasLimit,
+				gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+			};
+
+			const ids = orderIds.split(',').map(id => BigInt(id.trim()));
+
+			const tx = await contract.cancelOrders(ids, txOptions);
+
+			const receipt = await tx.wait();
+
+			return {
+				success: true,
+				transactionHash: tx.hash,
+				blockNumber: receipt?.blockNumber,
+				gasUsed: receipt?.gasUsed.toString(),
+				explorerUrl: `https://explorer.callistodao.org/tx/${tx.hash}`,
+			};
+
+		} catch (error) {
+			throw new Error(`Failed to cancel order: ${(error as Error).message}`);
+		}
+	}
+
+	private async getOpenOrders(
+		provider: ethers.JsonRpcProvider,
+		walletAddress: string,
+		contractAddress: string,
+		contractABI: any[],
+		tokenIn: string,
+		tokenOut: string,
+		amount: number,
+		options: any
+	): Promise<any> {
+		const contract = new ethers.Contract(contractAddress, contractABI, provider);
+
+		try {
+			const openOrders = await contract.getOpenOrders(tokenIn, tokenOut, walletAddress, 0, amount);
+			return {
+				openOrders,
+			};
+		} catch (error) {
+			throw new Error(`Failed to get open orders: ${(error as Error).message}`);
+		}
+	}
+
+	private async getOrderBook(
+		provider: ethers.JsonRpcProvider,
+		contractAddress: string,
+		contractABI: any[],
+		tokenIn: string,
+		tokenOut: string,
+		amount: number,
+		options: any
+	): Promise<any> {
+		const contract = new ethers.Contract(contractAddress, contractABI, provider);
+
+		try {
+			const orderBook = await contract.getOrderBook(tokenIn, tokenOut, amount);
+			return {
+				orderBook,
+			};
+		} catch (error) {
+			throw new Error(`Failed to get order book: ${(error as Error).message}`);
+		}
+	}
 }
