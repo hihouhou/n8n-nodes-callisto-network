@@ -102,6 +102,18 @@ export class CallistoNetwork implements INodeType {
                                                 description: 'Claim available cold staking rewards',
                                                 action: 'Claim cold staking rewards',
                                         },
+                                        {
+                                                name: 'Withdraw Cold Staking Rewards',
+                                                value: 'withdrawColdStakingRewards',
+                                                description: 'Withdraw available cold staking rewards',
+                                                action: 'Withdraw cold staking rewards',
+                                        },
+                                        {
+                                                name: 'Start Cold Staking',
+                                                value: 'startColdStaking',
+                                                description: 'Start cold staking',
+                                                action: 'Start cold staking',
+                                        },
 					{
 						name: 'Create Order',
 						value: 'createOrder',
@@ -176,7 +188,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'string',
                                 displayOptions: {
                                         show: {
-                                                operation: ['checkColdStakingRewards', 'claimColdStakingRewards', 'getColdStakingInfo', 'listenColdStakingEvents'],
+                                                operation: ['checkColdStakingRewards', 'claimColdStakingRewards', 'getColdStakingInfo', 'listenColdStakingEvents', 'startColdStaking', 'withdrawColdStakingRewards'],
                                         },
                                 },
                                 default: '0x08A7c8be47773546DC5E173d67B0c38AfFfa4b84',
@@ -216,7 +228,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'string',
                                 displayOptions: {
                                         show: {
-                                                operation: ['sendCLO'],
+                                                operation: ['sendCLO', 'startColdStaking'],
                                         },
                                 },
                                 required: true,
@@ -267,7 +279,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder', 'startColdStaking', 'withdrawColdStakingRewards'],
                                         },
                                 },
                                 default: 21000,
@@ -279,7 +291,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder'],
+                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder', 'startColdStaking', 'withdrawColdStakingRewards'],
                                         },
                                 },
                                 default: 1001,
@@ -652,6 +664,29 @@ export class CallistoNetwork implements INodeType {
                                                 result = await CallistoNetwork.prototype.checkColdStakingRewards(provider, walletAddress, coldStakingRewardsAddress, coldStakingABI, additionalOptions);
                                                 break;
 
+                                        case 'withdrawColdStakingRewards':
+                                                const withdrawColdStakingAddress = this.getNodeParameter('coldStakingContractAddress', i) as string;
+                                                const withdrawCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const withdrawPrivateKey = withdrawCredentials.privateKey as string;
+                                                const withdrawGasLimit = this.getNodeParameter('gasLimit', i) as number;
+                                                const withdrawGasPrice = this.getNodeParameter('gasPrice', i) as number;
+
+                                                if (!ethers.isAddress(withdrawColdStakingAddress)) {
+                                                        throw new NodeOperationError(this.getNode(), `Invalid cold staking contract address: ${withdrawColdStakingAddress}`);
+                                                }
+
+                                                result = await CallistoNetwork.prototype.withdrawColdStakingRewards(
+                                                        provider,
+                                                        walletAddress,
+                                                        withdrawColdStakingAddress,
+                                                        coldStakingABI,
+                                                        withdrawPrivateKey,
+                                                        withdrawGasLimit,
+                                                        withdrawGasPrice,
+                                                        additionalOptions
+                                                );
+                                                break;
+
                                         case 'claimColdStakingRewards':
                                                 const claimColdStakingAddress = this.getNodeParameter('coldStakingContractAddress', i) as string;
                                                 const claimCredentials = await this.getCredentials('callistoNetworkApi');
@@ -671,6 +706,31 @@ export class CallistoNetwork implements INodeType {
                                                         claimPrivateKey,
                                                         claimGasLimit,
                                                         claimGasPrice,
+                                                        additionalOptions
+                                                );
+                                                break;
+
+                                        case 'startColdStaking':
+                                                const startColdStakingAddress = this.getNodeParameter('coldStakingContractAddress', i) as string;
+                                                const startCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const startPrivateKey = startCredentials.privateKey as string;
+                                                const startGasLimit = this.getNodeParameter('gasLimit', i) as number;
+                                                const startGasPrice = this.getNodeParameter('gasPrice', i) as number;
+                                                const startColdStakingAmount = this.getNodeParameter('amount', i) as string;
+
+                                                if (!ethers.isAddress(startColdStakingAddress)) {
+                                                        throw new NodeOperationError(this.getNode(), `Invalid cold staking contract address: ${startColdStakingAddress}`);
+                                                }
+
+                                                result = await CallistoNetwork.prototype.startColdStaking(
+                                                        provider,
+                                                        walletAddress,
+                                                        startColdStakingAddress,
+                                                        coldStakingABI,
+                                                        startPrivateKey,
+                                                        startGasLimit,
+                                                        startGasPrice,
+                                                        startColdStakingAmount,
                                                         additionalOptions
                                                 );
                                                 break;
@@ -889,6 +949,7 @@ export class CallistoNetwork implements INodeType {
                         if (rewardBefore === BigInt(0)) {
                                 return {
                                         success: false,
+                                        walletAddress,
                                         message: 'No rewards available to claim',
                                         rewardBefore: '0',
                                 };
@@ -901,13 +962,14 @@ export class CallistoNetwork implements INodeType {
                         };
 
                         // Execute claim
-                        const tx = await contract.claim(txOptions);
+                        const tx = await contract.Withdraw_stake(txOptions);
                         const receipt = await tx.wait();
 
                         // Check rewards after claiming
                         const rewardAfter = await contract.stake_reward(walletAddress);
 
                         return {
+                                walletAddress,
                                 success: true,
                                 transactionHash: tx.hash,
                                 blockNumber: receipt?.blockNumber,
@@ -922,6 +984,126 @@ export class CallistoNetwork implements INodeType {
 
                 } catch (error) {
                         throw new Error(`Failed to claim cold staking rewards: ${(error as Error).message}`);
+                }
+        }
+
+        // NEW: Withdraw Cold Staking Rewards
+        private async withdrawColdStakingRewards(
+                provider: ethers.JsonRpcProvider,
+                walletAddress: string,
+                contractAddress: string,
+                contractABI: any[],
+                privateKey: string,
+                gasLimit: number,
+                gasPrice: number,
+                options: any
+        ): Promise<any> {
+                try {
+                        const wallet = new ethers.Wallet(privateKey, provider);
+
+                        if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
+                                throw new Error('Private key does not match the provided wallet address');
+                        }
+
+                        const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+
+                        // Check current rewards before withdrawing
+                        const rewardBefore = await contract.stake_reward(walletAddress);
+
+                        if (rewardBefore === BigInt(0)) {
+                                return {
+                                        success: false,
+                                        walletAddress,
+                                        message: 'No rewards available to withdraw',
+                                        rewardBefore: '0',
+                                };
+                        }
+
+                        // Prepare transaction options
+                        const txOptions = {
+                                gasLimit: gasLimit,
+                                gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+                        };
+
+                        // Execute withdraw
+                        const tx = await contract.Withdraw_stake(txOptions);
+                        const receipt = await tx.wait();
+
+                        // Check rewards after withdrawing
+                        const rewardAfter = await contract.stake_reward(walletAddress);
+
+                        return {
+                                walletAddress,
+                                success: true,
+                                transactionHash: tx.hash,
+                                blockNumber: receipt?.blockNumber,
+                                gasUsed: receipt?.gasUsed?.toString(),
+                                rewardBefore: ethers.formatEther(rewardBefore),
+                                rewardAfter: ethers.formatEther(rewardAfter),
+                                rewardWithdrawed: ethers.formatEther(rewardBefore - rewardAfter),
+                                explorerUrl: `https://explorer.callistodao.org/tx/${tx.hash}`,
+                                fee: receipt?.gasUsed && receipt?.gasPrice ?
+                                        ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : 'Unknown',
+                        };
+
+                } catch (error) {
+                        throw new Error(`Failed to withdraw cold staking rewards: ${(error as Error).message}`);
+                }
+        }
+
+        // NEW: Start Cold Staking
+        private async startColdStaking(
+                provider: ethers.JsonRpcProvider,
+                walletAddress: string,
+                contractAddress: string,
+                contractABI: any[],
+                privateKey: string,
+                gasLimit: number,
+                gasPrice: number,
+                amount: string,
+                options: any
+        ): Promise<any> {
+                try {
+                        const wallet = new ethers.Wallet(privateKey, provider);
+
+                        if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
+                                throw new Error('Private key does not match the provided wallet address');
+                        }
+
+                        const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+
+                        // check balance
+                                                if (!wallet.provider) {
+                                throw new Error('Provider not available');
+                        }
+                        const balance = await wallet.provider.getBalance(wallet.address);
+                        const amountWei = ethers.parseEther(amount);
+
+                        if (balance < amountWei) {
+                                throw new Error('Insufficient balance');
+                        }
+                        // Prepare transaction options
+                        const txOptions = {
+                                gasLimit: gasLimit,
+                                gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+                        };
+
+                        // Execute start
+                        const tx = await contract.StartStaking(txOptions);
+                        const receipt = await tx.wait();
+
+                        return {
+                                success: true,
+                                transactionHash: tx.hash,
+                                blockNumber: receipt?.blockNumber,
+                                gasUsed: receipt?.gasUsed?.toString(),
+                                explorerUrl: `https://explorer.callistodao.org/tx/${tx.hash}`,
+                                fee: receipt?.gasUsed && receipt?.gasPrice ?
+                                        ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : 'Unknown',
+                        };
+
+                } catch (error) {
+                        throw new Error(`Failed to start cold staking: ${(error as Error).message}`);
                 }
         }
 
