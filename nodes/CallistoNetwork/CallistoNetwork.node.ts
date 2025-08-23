@@ -712,10 +712,10 @@ export class CallistoNetwork implements INodeType {
 
                                         case 'startColdStaking':
                                                 const startColdStakingAddress = this.getNodeParameter('coldStakingContractAddress', i) as string;
-                                                const startCredentials = await this.getCredentials('callistoNetworkApi');
-                                                const startPrivateKey = startCredentials.privateKey as string;
-                                                const startGasLimit = this.getNodeParameter('gasLimit', i) as number;
-                                                const startGasPrice = this.getNodeParameter('gasPrice', i) as number;
+                                                const startColdStakingCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const startColdStakingPrivateKey = startColdStakingCredentials.privateKey as string;
+                                                const startColdStakingGasLimit = this.getNodeParameter('gasLimit', i) as number;
+                                                const startColdStakingGasPrice = this.getNodeParameter('gasPrice', i) as number;
                                                 const startColdStakingAmount = this.getNodeParameter('amount', i) as string;
 
                                                 if (!ethers.isAddress(startColdStakingAddress)) {
@@ -727,9 +727,9 @@ export class CallistoNetwork implements INodeType {
                                                         walletAddress,
                                                         startColdStakingAddress,
                                                         coldStakingABI,
-                                                        startPrivateKey,
-                                                        startGasLimit,
-                                                        startGasPrice,
+                                                        startColdStakingPrivateKey,
+                                                        startColdStakingGasLimit,
+                                                        startColdStakingGasPrice,
                                                         startColdStakingAmount,
                                                         additionalOptions
                                                 );
@@ -1073,7 +1073,7 @@ export class CallistoNetwork implements INodeType {
                         const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 
                         // check balance
-                                                if (!wallet.provider) {
+                        if (!wallet.provider) {
                                 throw new Error('Provider not available');
                         }
                         const balance = await wallet.provider.getBalance(wallet.address);
@@ -1086,10 +1086,13 @@ export class CallistoNetwork implements INodeType {
                         const txOptions = {
                                 gasLimit: gasLimit,
                                 gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
+                                value: amountWei
                         };
 
+                        // Execute start - 1 round
+                        const tx = await contract["start_staking(uint256)"](1, txOptions);
                         // Execute start
-                        const tx = await contract.StartStaking(txOptions);
+                        //const tx = await contract.start_staking(txOptions);
                         const receipt = await tx.wait();
 
                         return {
@@ -1097,6 +1100,7 @@ export class CallistoNetwork implements INodeType {
                                 transactionHash: tx.hash,
                                 blockNumber: receipt?.blockNumber,
                                 gasUsed: receipt?.gasUsed?.toString(),
+                                amountStaked: amount,
                                 explorerUrl: `https://explorer.callistodao.org/tx/${tx.hash}`,
                                 fee: receipt?.gasUsed && receipt?.gasPrice ?
                                         ethers.formatEther(receipt.gasUsed * receipt.gasPrice) : 'Unknown',
