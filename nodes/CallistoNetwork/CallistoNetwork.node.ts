@@ -37,16 +37,16 @@ export class CallistoNetwork implements INodeType {
                                 noDataExpression: true,
                                 options: [
                                         {
-                                                name: 'Check Claims',
-                                                value: 'checkClaims',
+                                                name: 'Check DAO Claims',
+                                                value: 'checkDaoClaims',
                                                 description: 'Check available claims for a wallet',
                                                 action: 'Check claims for a wallet',
                                         },
                                         {
-                                                name: 'Execute Claim',
-                                                value: 'executeClaim',
-                                                description: 'Execute a claim transaction',
-                                                action: 'Execute a claim transaction',
+                                                name: 'Execute DAO Claim',
+                                                value: 'executeAllDaoClaims',
+                                                description: 'Execute a DAO claim transaction',
+                                                action: 'Execute a DAO claim transaction',
                                         },
                                         {
                                                 name: 'Vote on Proposal',
@@ -175,7 +175,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'string',
                                 displayOptions: {
                                         show: {
-                                                operation: ['checkClaims', 'executeClaim', 'getVoteHistory', 'voteOnProposal', 'getActiveProposalsDao', 'getProposalDetails', 'getVotingPower', 'listProposalIds'],
+                                                operation: ['checkDaoClaims', 'executeAllDaoClaims', 'getVoteHistory', 'voteOnProposal', 'getActiveProposalsDao', 'getProposalDetails', 'getVotingPower', 'listProposalIds'],
                                         },
                                 },
                                 default: '0x810059e1406dEDAFd1BdCa4E0137CbA306c0Ce36',
@@ -279,10 +279,10 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder', 'startColdStaking', 'withdrawColdStakingRewards'],
+                                                operation: ['executeAllDaoClaims', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder', 'startColdStaking', 'withdrawColdStakingRewards'],
                                         },
                                 },
-                                default: 21000,
+                                default: 210000,
                                 description: 'Gas limit for the transaction',
                         },
                         {
@@ -291,7 +291,7 @@ export class CallistoNetwork implements INodeType {
                                 type: 'number',
                                 displayOptions: {
                                         show: {
-                                                operation: ['executeClaim', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder', 'startColdStaking', 'withdrawColdStakingRewards'],
+                                                operation: ['executeAllDaoClaims', 'voteOnProposal', 'sendCLO', 'claimColdStakingRewards', 'createOrder', 'startColdStaking', 'withdrawColdStakingRewards'],
                                         },
                                 },
                                 default: 1001,
@@ -531,7 +531,7 @@ export class CallistoNetwork implements INodeType {
                                                 if (!ethers.isAddress(proposalsContractAddress)) {
                                                         throw new NodeOperationError(this.getNode(), `Invalid contract address: ${proposalsContractAddress}`);
                                                 }
-                                                result = await CallistoNetwork.prototype.getActiveProposalsDao(provider, proposalsContractAddress, contractABI, additionalOptions);
+                                                result = await CallistoNetwork.prototype.getActiveProposalsDao(provider, proposalsContractAddress, contractABI, walletAddress, additionalOptions);
                                                 break;
 
                                         case 'getProposalDetails':
@@ -545,7 +545,8 @@ export class CallistoNetwork implements INodeType {
 
                                         case 'voteOnProposal':
                                                 const voteContractAddress = this.getNodeParameter('contractAddress', i) as string;
-                                                const votePrivateKey = this.getNodeParameter('privateKey', i) as string;
+                                                const daovoteCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const daovotePrivateKey = daovoteCredentials.privateKey as string;
                                                 const proposalId = this.getNodeParameter('proposalId', i) as string;
                                                 const voteChoice = this.getNodeParameter('voteChoice', i) as string;
                                                 const voteGasLimit = this.getNodeParameter('gasLimit', i) as number;
@@ -560,7 +561,7 @@ export class CallistoNetwork implements INodeType {
                                                         walletAddress,
                                                         voteContractAddress,
                                                         contractABI,
-                                                        votePrivateKey,
+                                                        daovotePrivateKey,
                                                         proposalId,
                                                         voteChoice === 'true',
                                                         voteGasLimit,
@@ -569,17 +570,18 @@ export class CallistoNetwork implements INodeType {
                                                 );
                                                 break;
 
-                                        case 'checkClaims':
+                                        case 'checkDaoClaims':
                                                 const claimsContractAddress = this.getNodeParameter('contractAddress', i) as string;
                                                 if (!ethers.isAddress(claimsContractAddress)) {
                                                         throw new NodeOperationError(this.getNode(), `Invalid contract address: ${claimsContractAddress}`);
                                                 }
-                                                result = await CallistoNetwork.prototype.checkClaims(provider, walletAddress, claimsContractAddress, contractABI, additionalOptions);
+                                                result = await CallistoNetwork.prototype.checkDaoClaims(provider, walletAddress, claimsContractAddress, contractABI, additionalOptions);
                                                 break;
 
-                                        case 'executeClaim':
+                                        case 'executeAllDaoClaims':
                                                 const claimContractAddress = this.getNodeParameter('contractAddress', i) as string;
-                                                const privateKey = this.getNodeParameter('privateKey', i) as string;
+                                                const claimDaoCredentials = await this.getCredentials('callistoNetworkApi');
+                                                const claimDaoPrivateKey = claimDaoCredentials.privateKey as string;
                                                 const gasLimit = this.getNodeParameter('gasLimit', i) as number;
                                                 const gasPrice = this.getNodeParameter('gasPrice', i) as number;
 
@@ -587,12 +589,12 @@ export class CallistoNetwork implements INodeType {
                                                         throw new NodeOperationError(this.getNode(), `Invalid contract address: ${claimContractAddress}`);
                                                 }
 
-                                                result = await CallistoNetwork.prototype.executeClaim(
+                                                result = await CallistoNetwork.prototype.executeAllDaoClaims(
                                                         provider,
                                                         walletAddress,
                                                         claimContractAddress,
                                                         contractABI,
-                                                        privateKey,
+                                                        claimDaoPrivateKey,
                                                         gasLimit,
                                                         gasPrice,
                                                         additionalOptions
@@ -1111,91 +1113,69 @@ export class CallistoNetwork implements INodeType {
                 }
         }
 
-        // Get active proposals - FIXED to use correct ABI
         private async getActiveProposalsDao(
                 provider: ethers.JsonRpcProvider,
                 contractAddress: string,
                 contractABI: any[],
+                walletAddress: string,
                 options: any
         ): Promise<any> {
                 const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
                 try {
-                        // Get total number of votes/proposals
-                        const totalVoting = await contract.total_voting();
-                        const maxProposals = Math.min(Number(totalVoting), options.maxProposals || 20);
-
+                        const totalVoting = Number(await contract.total_voting());
                         const activeProposals = [];
                         const allProposals = [];
+                        const now = Math.floor(Date.now() / 1000);
 
-                        // Get proposals using getProposalsList
+                        const formatProposal = (proposal: any) => {
+                                if (!proposal || !proposal.id) return null;
+                                const statusNum = Number(proposal.status);
+                                const isActive = statusNum === 1 && Number(proposal.deadLine) > now;
+
+                                return {
+                                        id: proposal.id.toString(),
+                                        owner: proposal.owner,
+                                        status: statusNum,
+                                        statusName: statusNum === 1 ? 'Active' : statusNum === 3 ? 'Executed' : 'Rejected',
+                                        comment: proposal.comment || '',
+                                        reward: proposal.reward ? ethers.formatEther(proposal.reward) : '0',
+                                        deadline: proposal.deadLine ? new Date(Number(proposal.deadLine) * 1000).toISOString() : null,
+                                        vocesYes: proposal.vocesYes ? proposal.vocesYes.length : 0,
+                                        vocesNo: proposal.vocesNo ? proposal.vocesNo.length : 0,
+                                        totalVotes: (proposal.vocesYes?.length || 0) + (proposal.vocesNo?.length || 0),
+                                        isActive,
+                                        hasVoted: proposal.vocesYes?.includes(walletAddress) || proposal.vocesNo?.includes(walletAddress) || false
+                                };
+                        };
+
+                        let proposals: any[] = [];
                         try {
-                                const proposals = await contract.getProposalsList(1, maxProposals);
-
-                                for (const proposal of proposals) {
-                                        const now = Math.floor(Date.now() / 1000);
-                                        const isActive = proposal.status === 0 && Number(proposal.deadLine) > now;
-
-                                        const proposalData = {
-                                                id: proposal.id.toString(),
-                                                owner: proposal.owner,
-                                                status: proposal.status,
-                                                statusName: proposal.status === 0 ? 'Active' : proposal.status === 1 ? 'Executed' : 'Rejected',
-                                                comment: proposal.comment,
-                                                reward: ethers.formatEther(proposal.reward),
-                                                deadline: new Date(Number(proposal.deadLine) * 1000).toISOString(),
-                                                vocesYes: proposal.vocesYes.length,
-                                                vocesNo: proposal.vocesNo.length,
-                                                totalVotes: proposal.vocesYes.length + proposal.vocesNo.length,
-                                                isActive,
-                                        };
-
-                                        allProposals.push(proposalData);
-
-                                        if (isActive) {
-                                                activeProposals.push(proposalData);
-                                        }
-                                }
-                        } catch (error) {
-                                // If getProposalsList fails, try to get individually
-                                for (let i = 1; i <= maxProposals; i++) {
+                                proposals = await contract.getProposalsList(totalVoting, totalVoting);
+                        } catch {
+                                for (let i = 1; i <= totalVoting; i++) {
                                         try {
                                                 const proposal = await contract.getProposal(i);
-                                                const now = Math.floor(Date.now() / 1000);
-                                                const isActive = proposal.status === 0 && Number(proposal.deadLine) > now;
-
-                                                const proposalData = {
-                                                        id: proposal.id.toString(),
-                                                        owner: proposal.owner,
-                                                        status: proposal.status,
-                                                        statusName: proposal.status === 0 ? 'Active' : proposal.status === 1 ? 'Executed' : 'Rejected',
-                                                        comment: proposal.comment,
-                                                        reward: ethers.formatEther(proposal.reward),
-                                                        deadline: new Date(Number(proposal.deadLine) * 1000).toISOString(),
-                                                        vocesYes: proposal.vocesYes.length,
-                                                        vocesNo: proposal.vocesNo.length,
-                                                        totalVotes: proposal.vocesYes.length + proposal.vocesNo.length,
-                                                        isActive,
-                                                };
-
-                                                allProposals.push(proposalData);
-
-                                                if (isActive) {
-                                                        activeProposals.push(proposalData);
-                                                }
-                                        } catch (err) {
-                                                // Ignore errors for non-existent IDs
+                                                proposals.push(proposal);
+                                        } catch {
                                                 continue;
                                         }
                                 }
                         }
 
+                        for (const proposal of proposals) {
+                                const data = formatProposal(proposal);
+                                if (!data) continue;
+                                allProposals.push(data);
+                                if (data.isActive && !data.hasVoted) activeProposals.push(data);
+                        }
+
                         return {
-                                totalProposals: Number(totalVoting),
+                                totalProposals: totalVoting,
                                 proposalsProcessed: allProposals.length,
                                 activeProposalsCount: activeProposals.length,
                                 activeProposals,
-                                recentProposals: allProposals.slice(0, 10),
+                                recentProposals: allProposals.slice(-10),
                         };
 
                 } catch (error) {
@@ -1226,7 +1206,7 @@ export class CallistoNetwork implements INodeType {
                                                 availableIds.push({
                                                         id: i,
                                                         status: proposal.status,
-                                                        statusName: proposal.status === 0 ? 'Active' : proposal.status === 1 ? 'Executed' : 'Rejected',
+                                                        statusName: Number(proposal.status) === 1 ? 'Active' : Number(proposal.status) === 3 ? 'Executed' : 'Rejected',
                                                         comment: proposal.comment ? proposal.comment.substring(0, 50) + '...' : 'No comment',
                                                         deadline: proposal.deadLine ? new Date(Number(proposal.deadLine) * 1000).toISOString() : null,
                                                 });
@@ -1286,7 +1266,7 @@ export class CallistoNetwork implements INodeType {
                         }
 
                         const now = Math.floor(Date.now() / 1000);
-                        const isActive = proposal.status === 0 && Number(proposal.deadLine) > now;
+                        const isActive = Number(proposal.status) === 1 && Number(proposal.deadLine) > now;
 
                         // Safe handling of arrays that might be undefined
                         const vocesYes = proposal.vocesYes || [];
@@ -1296,7 +1276,7 @@ export class CallistoNetwork implements INodeType {
                                 id: proposal.id.toString(),
                                 owner: proposal.owner || '0x0000000000000000000000000000000000000000',
                                 status: proposal.status,
-                                statusName: proposal.status === 0 ? 'Active' : proposal.status === 1 ? 'Executed' : 'Rejected',
+                                statusName: Number(proposal.status) === 1 ? 'Active' : Number(proposal.status) === 3 ? 'Executed' : 'Rejected',
                                 comment: proposal.comment || '',
                                 reward: proposal.reward ? ethers.formatEther(proposal.reward) : '0',
                                 rewardWei: proposal.reward ? proposal.reward.toString() : '0',
@@ -1351,7 +1331,7 @@ export class CallistoNetwork implements INodeType {
                         const proposal = await contract.getProposal(proposalId);
                         const now = Math.floor(Date.now() / 1000);
 
-                        if (proposal.status !== 0) {
+                        if (Number(proposal.status) !== 1) {
                                 throw new Error(`Proposal is not active. Current status: ${proposal.status}`);
                         }
 
@@ -1399,136 +1379,177 @@ export class CallistoNetwork implements INodeType {
         }
 
         // Check claims - FIXED
-        private async checkClaims(
-                provider: ethers.JsonRpcProvider,
-                walletAddress: string,
-                contractAddress: string,
-                contractABI: any[],
-                options: any
+        private async checkDaoClaims(
+            provider: ethers.JsonRpcProvider,
+            walletAddress: string,
+            contractAddress: string,
+            contractABI: any[],
+            options: any
         ): Promise<any> {
-                const contract = new ethers.Contract(contractAddress, contractABI, provider);
+            const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
-                try {
-                        // Get the list of claims for this user
-                        const claimsList = await contract.getClaimList(walletAddress, 1, 100);
-                        const claimIds = claimsList[0]; // The proposal IDs
-                        const claimStatuses = claimsList[1]; // The statuses (true/false for claimable)
+            try {
+                // Récupérer le dernier ID connu
+                const totalVoting: bigint = await contract.total_voting();
+                const maxId = Number(totalVoting); // dernier ID de proposition
 
-                        const availableClaims = [];
-                        let totalClaimable = BigInt(0);
+                const batchSize = 100;
+                let allClaimIds: bigint[] = [];
+                let allClaimStatuses: boolean[] = [];
 
-                        for (let i = 0; i < claimIds.length; i++) {
-                                if (claimStatuses[i]) { // If claimable
-                                        try {
-                                                const proposal = await contract.getProposal(claimIds[i]);
-                                                availableClaims.push({
-                                                        proposalId: claimIds[i].toString(),
-                                                        reward: ethers.formatEther(proposal.reward),
-                                                        rewardWei: proposal.reward.toString(),
-                                                        comment: proposal.comment,
-                                                });
-                                                totalClaimable += proposal.reward;
-                                        } catch (err) {
-                                                continue;
-                                        }
-                                }
-                        }
+                // ---- Boucle par batchs jusqu’au dernier ID ----
+                for (let startId = 1; startId <= maxId; startId += batchSize) {
+                    const claimsList = await contract.getClaimList(walletAddress, startId, batchSize);
 
-                        return {
-                                totalClaimable: ethers.formatEther(totalClaimable),
-                                totalClaimableWei: totalClaimable.toString(),
-                                availableClaimsCount: availableClaims.length,
-                                availableClaims,
-                                canClaim: availableClaims.length > 0,
-                        };
+                    const claimIds: bigint[] = claimsList[0];
+                    const claimStatuses: boolean[] = claimsList[1];
 
-                } catch (error) {
-                        throw new Error(`Failed to check claims: ${(error as Error).message}`);
+                    if (claimIds.length > 0) {
+                        allClaimIds = allClaimIds.concat(claimIds);
+                        allClaimStatuses = allClaimStatuses.concat(claimStatuses);
+                    }
                 }
+
+                // ---- Analyse des claims ----
+                const availableClaims = [];
+                let totalClaimable = BigInt(0);
+
+                for (let i = 0; i < allClaimIds.length; i++) {
+                    if (allClaimStatuses[i]) { // claimable
+                        try {
+                            const proposal = await contract.getProposal(allClaimIds[i]);
+                            availableClaims.push({
+                                proposalId: allClaimIds[i].toString(),
+                                reward: ethers.formatEther(proposal.reward),
+                                rewardWei: proposal.reward.toString(),
+                                comment: proposal.comment,
+                            });
+                            totalClaimable += proposal.reward;
+                        } catch (err) {
+                            console.warn(`Erreur sur proposal ${allClaimIds[i]}:`, err);
+                            continue;
+                        }
+                    }
+                }
+
+                return {
+                    totalClaimable: ethers.formatEther(totalClaimable),
+                    totalClaimableWei: totalClaimable.toString(),
+                    availableClaimsCount: availableClaims.length,
+                    availableClaims,
+                    canClaim: availableClaims.length > 0,
+                };
+
+            } catch (error) {
+                throw new Error(`Failed to check claims: ${(error as Error).message}`);
+            }
         }
 
-        // Execute claim - FIXED
-        private async executeClaim(
-                provider: ethers.JsonRpcProvider,
-                walletAddress: string,
-                contractAddress: string,
-                contractABI: any[],
-                privateKey: string,
-                gasLimit: number,
-                gasPrice: number,
-                options: any
+        private async executeAllDaoClaims(
+            provider: ethers.JsonRpcProvider,
+            walletAddress: string,
+            contractAddress: string,
+            contractABI: any[],
+            privateKey: string,
+            gasLimit: number,
+            gasPrice: number,
+            options: any = {}
         ): Promise<any> {
-                try {
-                        const wallet = new ethers.Wallet(privateKey, provider);
 
-                        if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
-                                throw new Error('Private key does not match the provided wallet address');
-                        }
+            const wallet = new ethers.Wallet(privateKey, provider);
+            if (wallet.address.toLowerCase() !== walletAddress.toLowerCase()) {
+                throw new Error('Private key does not match the provided wallet address');
+            }
 
-                        const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+            const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 
-                        // Check available claims
-                        const claimsList = await contract.getClaimList(walletAddress, 1, 100);
-                        const claimIds = claimsList[0];
-                        const claimStatuses = claimsList[1];
+            // ---- 1. Récupérer tous les claims jusqu'à total_voting ----
+            const totalVoting: bigint = await contract.total_voting();
+            const maxId = Number(totalVoting);
 
-                        const claimableIds = [];
-                        for (let i = 0; i < claimIds.length; i++) {
-                                if (claimStatuses[i]) {
-                                        claimableIds.push(claimIds[i]);
-                                }
-                        }
+            const batchSize = options.batchSize || 100;
+            let allClaimIds: bigint[] = [];
+            let allClaimStatuses: boolean[] = [];
 
-                        if (claimableIds.length === 0) {
-                                return {
-                                        success: false,
-                                        message: 'No rewards available to claim',
-                                };
-                        }
+            for (let startId = 1; startId <= maxId; startId += batchSize) {
+                const claimsList = await contract.getClaimList(walletAddress, startId, batchSize);
+                allClaimIds = allClaimIds.concat(claimsList[0]);
+                allClaimStatuses = allClaimStatuses.concat(claimsList[1]);
+            }
 
-                        // Prepare transaction options
-                        const txOptions = {
-                                gasLimit: gasLimit,
-                                gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei'),
-                        };
+            const claimsDetailed: any[] = [];
+            for (let i = 0; i < allClaimIds.length; i++) {
+                const proposalId = allClaimIds[i];
+                let status: "alreadyClaimed" | "claimable" | "notClaimable" = "notClaimable";
 
-                        const claimResults = [];
-                        let totalClaimed = BigInt(0);
-
-                        // Claim each reward
-                        for (const claimId of claimableIds) {
-                                try {
-                                        const proposal = await contract.getProposal(claimId);
-                                        const tx = await contract.claim(claimId, txOptions);
-                                        const receipt = await tx.wait();
-
-                                        claimResults.push({
-                                                proposalId: claimId.toString(),
-                                                transactionHash: tx.hash,
-                                                reward: ethers.formatEther(proposal.reward),
-                                                gasUsed: receipt?.gasUsed.toString(),
-                                        });
-
-                                        totalClaimed += proposal.reward;
-                                } catch (err) {
-                                        claimResults.push({
-                                                proposalId: claimId.toString(),
-                                                error: (err as Error).message,
-                                        });
-                                }
-                        }
-
-                        return {
-                                success: true,
-                                totalClaimed: ethers.formatEther(totalClaimed),
-                                totalClaimedWei: totalClaimed.toString(),
-                                claimsProcessed: claimResults.length,
-                                claimResults,
-                        };
-
-                } catch (error) {
-                        throw new Error(`Failed to execute claim: ${(error as Error).message}`);
+                if (allClaimStatuses[i]) {
+                    const canClaim: boolean = await contract.checkClaim(proposalId, walletAddress);
+                    status = canClaim ? "claimable" : "alreadyClaimed";
                 }
+
+                let reward = BigInt(0);
+                let comment = "";
+                try {
+                    const proposal = await contract.getProposal(proposalId);
+                    reward = proposal.reward;
+                    comment = proposal.comment;
+                } catch {}
+
+                claimsDetailed.push({
+                    proposalId: proposalId.toString(),
+                    reward: ethers.formatEther(reward),
+                    rewardWei: reward.toString(),
+                    comment,
+                    status
+                });
+            }
+
+            const claimableProposals = claimsDetailed.filter(c => c.status === "claimable");
+            const executedClaims: any[] = [];
+            let totalRewardClaimed = BigInt(0);
+
+            if (claimableProposals.length > 0) {
+                const txOptions: any = {
+                    gasLimit,
+                    gasPrice: ethers.parseUnits(gasPrice.toString(), 'gwei')
+                };
+                if (options.maxFeePerGas) txOptions.maxFeePerGas = ethers.parseUnits(options.maxFeePerGas.toString(), 'gwei');
+                if (options.maxPriorityFeePerGas) txOptions.maxPriorityFeePerGas = ethers.parseUnits(options.maxPriorityFeePerGas.toString(), 'gwei');
+
+                for (const c of claimableProposals) {
+                    try {
+                        const tx = await contract.claim(BigInt(c.proposalId), txOptions);
+                        const receipt = await tx.wait();
+                        if (!receipt || receipt.status === 0) throw new Error('Transaction failed');
+
+                        totalRewardClaimed += BigInt(c.rewardWei);
+
+                        executedClaims.push({
+                            ...c,
+                            success: true,
+                            transactionHash: tx.hash,
+                            blockNumber: receipt.blockNumber,
+                            gasUsed: receipt.gasUsed?.toString() || '0'
+                        });
+
+                        if (options.delayBetweenClaims) {
+                            await new Promise(resolve => setTimeout(resolve, options.delayBetweenClaims));
+                        }
+                    } catch (err) {
+                        executedClaims.push({
+                            ...c,
+                            success: false,
+                            message: (err as Error).message
+                        });
+                    }
+                }
+            }
+
+            return {
+                totalRewardClaimed: ethers.formatEther(totalRewardClaimed),
+                claimableCount: claimableProposals.length,
+                executedClaims
+            };
         }
 
         // Get voting power - FIXED
