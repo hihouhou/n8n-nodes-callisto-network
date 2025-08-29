@@ -9,6 +9,8 @@ import {
 
 import { ethers } from 'ethers';
 
+import fetch from 'node-fetch';
+
 export class CallistoNetwork implements INodeType {
         description: INodeTypeDescription = {
                 displayName: 'Callisto Network DAO',
@@ -459,6 +461,18 @@ export class CallistoNetwork implements INodeType {
                 description: 'List of wallet or contract addresses to monitor',
             },
                         {
+                                displayName: 'auto fetch ABI',
+                                name: 'autoFetchABI',
+                                type: 'boolean',
+                                default: true,
+                                description: 'auto fetch ABI for Callisto DAO Explorer',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['scanBlocksForAddresses'],
+                                        },
+                                },
+                        },
+                        {
                                 displayName: 'Additional Options',
                                 name: 'additionalOptions',
                                 type: 'collection',
@@ -898,13 +912,16 @@ export class CallistoNetwork implements INodeType {
                     case 'scanBlocksForAddresses':
                         const startBlock = this.getNodeParameter('startBlock', i) as number;
                         const endBlock = this.getNodeParameter('endBlock', i) as number;
-                        const watchList = this.getNodeParameter('watchList', i) as string[];
+                        const rawWatchList = this.getNodeParameter('watchList', i) as string[];
+                        const watchList = rawWatchList.map(addr => ({ address: addr }));
+                        const autoFetchABI = this.getNodeParameter('autoFetchABI', i, true) as boolean;
 
                         result = await CallistoNetwork.prototype.scanBlocksForAddresses(
                             provider,
                             startBlock,
                             endBlock,
-                            watchList
+                            watchList,
+                            autoFetchABI
                         );
                         break;
 
@@ -2003,18 +2020,37 @@ export class CallistoNetwork implements INodeType {
         }
     }
 
+
+    private async fetchABI(address: string): Promise<any[] | null> {
+        try {
+            const url = `https://explorer.callistodao.org/api?module=contract&action=getabi&address=${address}`;
+            const res = await fetch(url, { headers: { accept: 'application/json' } });
+            const data: any = await res.json();
+            if (data.status === "1" && data.result) {
+                return JSON.parse(data.result);
+            }
+            return null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     private async scanBlocksForAddresses(
         provider: ethers.JsonRpcProvider,
         startBlock: number,
         endBlock: number,
-        watchList: string[]
+        watchList: { address: string, label?: string }[],
+        autoFetchABI: boolean = true
     ): Promise<any> {
         try {
-            const normalizedWatchList = watchList.map(addr => addr.toLowerCase());
+            const normalizedWatchList = watchList.map(w => ({
+                address: w.address.toLowerCase(),
+                label: w.label || w.address
+            }));
             const events: any[] = [];
 
             for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
-                const block = await provider.getBlock(blockNumber, true);
+                const block = await provider.getBlock(blockNumber);
                 if (!block || !block.transactions) continue;
 
                 for (const txHash of block.transactions) {
@@ -2024,20 +2060,44 @@ export class CallistoNetwork implements INodeType {
                     const from = tx.from?.toLowerCase();
                     const to = tx.to?.toLowerCase();
 
-                    if (
-                        (from && normalizedWatchList.includes(from)) ||
-                        (to && normalizedWatchList.includes(to))
-                    ) {
-                        events.push({
-                            blockNumber: block.number,
-                            txHash: tx.hash,
-                            from: tx.from,
-                            to: tx.to,
-                            value: ethers.formatEther(tx.value),
-                            gasUsed: tx.gasLimit?.toString() || "0",
-                            timestamp: block.timestamp,
-                        });
+                    const watchFrom = normalizedWatchList.find(w => w.address === from);
+                    const watchTo = normalizedWatchList.find(w => w.address === to);
+
+                    if (!watchFrom && !watchTo) continue;
+
+                    const receipt = await provider.getTransactionReceipt(tx.hash);
+                    const status = receipt?.status === 1 ? "Success" : "Failed";
+
+                    let functionName = "Unknown";
+                    if (autoFetchABI && tx.to) {
+                        const fetchedABI = await this.fetchABI(tx.to);
+                        if (fetchedABI) {
+                            try {
+                                const iface = new ethers.Interface(fetchedABI);
+                                const decoded = iface.parseTransaction({ data: tx.data, value: tx.value });
+                                functionName = decoded?.name || "Unknown";
+                            } catch {}
+                        }
                     }
+
+                    let txFee = "0";
+                    if (receipt) {
+                        const gasPrice = tx.gasPrice ?? 0;
+                        txFee = ethers.formatEther(receipt.gasUsed * gasPrice);
+                    }
+
+                    events.push({
+                        blockNumber: block.number,
+                        txHash: tx.hash,
+                        type: "Contract Call",
+                        status,
+                        functionName,
+                        from: tx.from,
+                        to: watchTo ? `${watchTo.label} (${tx.to})` : tx.to,
+                        value: ethers.formatEther(tx.value),
+                        txFee,
+                        timestamp: block.timestamp
+                    });
                 }
             }
 
@@ -2045,12 +2105,12 @@ export class CallistoNetwork implements INodeType {
                 success: true,
                 scannedBlocks: endBlock - startBlock + 1,
                 totalEvents: events.length,
-                events,
+                events
             };
         } catch (error) {
             return {
                 success: false,
-                message: `Failed to scan blocks: ${(error as Error).message}`,
+                message: `Failed to scan blocks: ${(error as Error).message}`
             };
         }
     }
