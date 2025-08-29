@@ -138,6 +138,18 @@ export class CallistoNetwork implements INodeType {
 						description: 'Get the order book for a token pair on 2Bears',
 						action: 'Get the order book for a token pair on 2Bears',
 					},
+					{
+						name: 'Get last Block Number',
+						value: 'getLatestBlockNumber',
+						description: 'Get the last block number',
+						action: 'Get the last block number',
+					},
+					{
+						name: 'Scan block for Addresses',
+						value: 'scanBlocksForAddresses',
+						description: 'Scan blocks for specific addresses',
+						action: 'Scan block and create event when found addresses',
+					},
                                 ],
                                 default: 'getActiveProposalsDao',
                         },
@@ -406,6 +418,46 @@ export class CallistoNetwork implements INodeType {
 				default: 10,
 				description: 'The number of orders to fetch',
 			},
+			{
+				displayName: 'startblock',
+				name: 'startBlock',
+				type: 'number',
+				displayOptions: {
+					show: {
+						operation: ['scanBlocksForAddresses'],
+					},
+				},
+				default: 10,
+				description: 'The number of orders to fetch',
+			},
+			{
+				displayName: 'endblock',
+				name: 'endBlock',
+				type: 'number',
+				displayOptions: {
+					show: {
+						operation: ['scanBlocksForAddresses'],
+					},
+				},
+				default: 10,
+				description: 'The number of orders to fetch',
+			},
+            {
+                displayName: 'Watch List',
+                name: 'watchList',
+                type: 'string',
+                displayOptions: {
+                    show: {
+                        operation: ['scanBlocksForAddresses'],
+                    },
+                },
+                typeOptions: {
+                    multipleValues: true,
+                },
+                default: [],
+                placeholder: '0x123..., 0x456...',
+                description: 'List of wallet or contract addresses to monitor',
+            },
                         {
                                 displayName: 'Additional Options',
                                 name: 'additionalOptions',
@@ -837,6 +889,25 @@ export class CallistoNetwork implements INodeType {
 							additionalOptions
 						);
 						break;
+
+					case 'getLatestBlockNumber':
+                                                result = await CallistoNetwork.prototype.getLatestBlockNumber(
+                                                    provider
+                                                );
+                                                break;
+                    case 'scanBlocksForAddresses':
+                        const startBlock = this.getNodeParameter('startBlock', i) as number;
+                        const endBlock = this.getNodeParameter('endBlock', i) as number;
+                        const watchList = this.getNodeParameter('watchList', i) as string[];
+
+                        result = await CallistoNetwork.prototype.scanBlocksForAddresses(
+                            provider,
+                            startBlock,
+                            endBlock,
+                            watchList
+                        );
+                        break;
+
 
                                         default:
                                                 throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
@@ -1916,4 +1987,72 @@ export class CallistoNetwork implements INodeType {
 			throw new Error(`Failed to get order book: ${(error as Error).message}`);
 		}
 	}
+
+    private async getLatestBlockNumber(provider: ethers.JsonRpcProvider): Promise<any> {
+        try {
+            const blockNumber = await provider.getBlockNumber();
+            return {
+                success: true,
+                blockNumber
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Failed to fetch latest block number: ${(error as Error).message}`
+            };
+        }
+    }
+
+    private async scanBlocksForAddresses(
+        provider: ethers.JsonRpcProvider,
+        startBlock: number,
+        endBlock: number,
+        watchList: string[]
+    ): Promise<any> {
+        try {
+            const normalizedWatchList = watchList.map(addr => addr.toLowerCase());
+            const events: any[] = [];
+
+            for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
+                const block = await provider.getBlock(blockNumber, true);
+                if (!block || !block.transactions) continue;
+
+                for (const txHash of block.transactions) {
+                    const tx = await provider.getTransaction(txHash);
+                    if (!tx) continue;
+
+                    const from = tx.from?.toLowerCase();
+                    const to = tx.to?.toLowerCase();
+
+                    if (
+                        (from && normalizedWatchList.includes(from)) ||
+                        (to && normalizedWatchList.includes(to))
+                    ) {
+                        events.push({
+                            blockNumber: block.number,
+                            txHash: tx.hash,
+                            from: tx.from,
+                            to: tx.to,
+                            value: ethers.formatEther(tx.value),
+                            gasUsed: tx.gasLimit?.toString() || "0",
+                            timestamp: block.timestamp,
+                        });
+                    }
+                }
+            }
+
+            return {
+                success: true,
+                scannedBlocks: endBlock - startBlock + 1,
+                totalEvents: events.length,
+                events,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Failed to scan blocks: ${(error as Error).message}`,
+            };
+        }
+    }
+
 }
