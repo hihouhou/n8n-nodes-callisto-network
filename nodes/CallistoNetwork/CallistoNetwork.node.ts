@@ -1052,7 +1052,7 @@ export class CallistoNetwork implements INodeType {
                         };
 
                         // Execute claim
-                        const tx = await contract.Withdraw_stake(txOptions);
+                        const tx = await contract.claim(txOptions);
                         const receipt = await tx.wait();
 
                         // Check rewards after claiming
@@ -1116,7 +1116,7 @@ export class CallistoNetwork implements INodeType {
                         };
 
                         // Execute withdraw
-                        const tx = await contract.Withdraw_stake(txOptions);
+                        const tx = await contract.withdraw_stake(walletAddress, txOptions);
                         const receipt = await tx.wait();
 
                         // Check rewards after withdrawing
