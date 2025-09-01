@@ -40,16 +40,21 @@
     ]
   },
   "devDependencies": {
+    "@types/node-fetch": "^2.6.13",
     "@typescript-eslint/parser": "~8.32.0",
     "eslint": "^8.57.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",
     "gulp": "^5.0.0",
     "prettier": "^3.5.3",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   },
   "peerDependencies": {
-    "n8n-workflow": "*",
+    "axios": "^1.6.0",
     "ethers": "^6.8.0",
-    "axios": "^1.6.0"
+    "n8n-workflow": "*"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "tsc": "^2.0.4"
   }
 }
