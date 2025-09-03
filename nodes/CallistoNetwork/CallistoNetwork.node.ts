@@ -116,42 +116,48 @@ export class CallistoNetwork implements INodeType {
                                                 description: 'Start cold staking',
                                                 action: 'Start cold staking',
                                         },
-					{
-						name: 'Create Order',
-						value: 'createOrder',
-						description: 'Create a new order on 2Bears',
-						action: 'Create a new order on 2Bears',
-					},
-					{
-						name: 'Cancel Order',
-						value: 'cancelOrder',
-						description: 'Cancel an existing order on 2Bears',
-						action: 'Cancel an existing order on 2Bears',
-					},
-					{
-						name: 'Get Open Orders',
-						value: 'getOpenOrders',
-						description: 'Get a list of open orders for a wallet on 2Bears',
-						action: 'Get a list of open orders for a wallet on 2Bears',
-					},
-					{
-						name: 'Get Order Book',
-						value: 'getOrderBook',
-						description: 'Get the order book for a token pair on 2Bears',
-						action: 'Get the order book for a token pair on 2Bears',
-					},
-					{
-						name: 'Get last Block Number',
-						value: 'getLatestBlockNumber',
-						description: 'Get the last block number',
-						action: 'Get the last block number',
-					},
-					{
-						name: 'Scan block for Addresses',
-						value: 'scanBlocksForAddresses',
-						description: 'Scan blocks for specific addresses',
-						action: 'Scan block and create event when found addresses',
-					},
+                                        {
+                                                name: 'Create Order',
+                                                value: 'createOrder',
+                                                description: 'Create a new order on 2Bears',
+                                                action: 'Create a new order on 2Bears',
+                                        },
+                                        {
+                                                name: 'Cancel Order',
+                                                value: 'cancelOrder',
+                                                description: 'Cancel an existing order on 2Bears',
+                                                action: 'Cancel an existing order on 2Bears',
+                                        },
+                                        {
+                                                name: 'Get Open Orders',
+                                                value: 'getOpenOrders',
+                                                description: 'Get a list of open orders for a wallet on 2Bears',
+                                                action: 'Get a list of open orders for a wallet on 2Bears',
+                                        },
+                                        {
+                                                name: 'Get Order Book',
+                                                value: 'getOrderBook',
+                                                description: 'Get the order book for a token pair on 2Bears',
+                                                action: 'Get the order book for a token pair on 2Bears',
+                                        },
+                                        {
+                                                name: 'Get last Block Number',
+                                                value: 'getLatestBlockNumber',
+                                                description: 'Get the last block number',
+                                                action: 'Get the last block number',
+                                        },
+                                        {
+                                                name: 'Scan block for Addresses',
+                                                value: 'scanBlocksForAddresses',
+                                                description: 'Scan blocks for specific addresses',
+                                                action: 'Scan block and create event when found addresses',
+                                        },
+                                        {
+                                                name: 'Get daily stats',
+                                                value: 'getTxStats',
+                                                description: 'Scan blocks to generate daily stats',
+                                                action: 'Scan block and create daily stats',
+                                        },
                                 ],
                                 default: 'getActiveProposalsDao',
                         },
@@ -426,7 +432,7 @@ export class CallistoNetwork implements INodeType {
 				type: 'number',
 				displayOptions: {
 					show: {
-						operation: ['scanBlocksForAddresses'],
+						operation: ['scanBlocksForAddresses', 'getTxStats'],
 					},
 				},
 				default: 10,
@@ -438,7 +444,7 @@ export class CallistoNetwork implements INodeType {
 				type: 'number',
 				displayOptions: {
 					show: {
-						operation: ['scanBlocksForAddresses'],
+						operation: ['scanBlocksForAddresses', 'getTxStats'],
 					},
 				},
 				default: 10,
@@ -909,6 +915,18 @@ export class CallistoNetwork implements INodeType {
                                                     provider
                                                 );
                                                 break;
+
+                    case 'getTxStats':
+                        const firstBlock = this.getNodeParameter('startBlock', i) as number;
+                        const lastBlock = this.getNodeParameter('endBlock', i) as number;
+
+                        result = await CallistoNetwork.prototype.getTxStats(
+                            provider,
+                            firstBlock,
+                            lastBlock
+                        );
+                        break;
+
                     case 'scanBlocksForAddresses':
                         const startBlock = this.getNodeParameter('startBlock', i) as number;
                         const endBlock = this.getNodeParameter('endBlock', i) as number;
@@ -958,6 +976,157 @@ export class CallistoNetwork implements INodeType {
                 }
 
                 return [returnData];
+        }
+
+        private async getTxStats(
+            provider: ethers.JsonRpcProvider,
+            firstBlock: number,
+            lastBlock: number,
+        ): Promise<any> {
+            try {
+                const txList: ethers.TransactionResponse[] = [];
+                let burntClo = 0;
+
+                // addresses of interest
+                const dead = "0x000000000000000000000000000000000000dead";
+                const miners = [
+                    "0xf34eaf6e2cf4744b5e29734295135c4213d59149",
+                    '0xed15b7b7b5dc81daae277a081b47a04c3a8bea1b',
+                    '0xd125b3b146d21d058edac7a5b5f7481a571e4c46',
+                    '0xe683de43ccfbef16424ecb577f288cf343dfbc5a',
+                    '0x0073cf1b9230cf3ee8cab1971b8dbef21ea7b595',
+                    '0x40b67778d97a7d15a519d907ed991948e8ea486c',
+                    '0x8845ee5cae61b807678415bb8a68773df9d48f8e',
+                    '0x52f0458c70af5cdeb555cad800add5f82c3e59f7',
+                    '0xd06bb917c099acf24d43552b5aa760aeef7cd4aa',
+                    '0xf35074bbd0a9aee46f4ea137971feec024ab704e',
+                    '0xd144e30a0571aaf0d0c050070ac435deba461fab',
+                    '0x8057c50c6d72f4399862fefbc8d3b8a8757cde57',
+                    '0xfbf679d6ed0cb9747e05e7e8ae06e890e6bf2b66',
+                    '0x11905bd0863ba579023f662d1935e39d0c671933',
+                    '0xe4f3cab1f11d5a917ac73c80927e64ee4b1a445a',
+                    '0xae83a3e136e6714e6c1e5483950936d7872fb999',
+                    '0x39ec1c88a7a7c1a575e8c8f42eff7630d9278179',
+                    '0xd6d27255eaef8c3fcb5433acb5494bf04cb5f2c3',
+                    '0x004730417cd2b1d19f6be2679906ded4fa8a64e2',
+                    '0x89308111f17a395b82f1e5a2824bd01fd13a53b5',
+                    '0x800f25eb68a06ff9671605bd450c29e80f593e0a',
+                    '0xa5d9018f6c99ec3230633c1187c5cb607c704ed8',
+                    '0xfe59743b65f2afec200ce279a289cb4a43eb7eeb',
+                    '0x811bad1a4041a9f6ed8fc2f4e9d421dc82626f81',
+                    '0xbd12b4511ec9fd1cf481d5643f307252ae6f55e2',
+                    '0x5f7661e493d4f1a318c02e9383568597e8a09b5a',
+                    '0xe0bac765ca88706a12e4f5a9c0e92dc823fe6293',
+                    '0x40c48b386e15981df5a10552cb97ee6d232c8547',
+                    '0x458ddc6a7e924554756f95715a53bf948560ee38',
+                    '0x3c6b9edb1f8ec6c85436b7cb384eb607489c732f',
+                    '0x2a1efdf9f09869a82e5e6b0f3736aabcb5381206',
+                    '0xf30a30315d5214e490458d0511595e42b3d917d0',
+                    '0x8c2fdc530815eb4267c8b12f10adafc4ca73484a',
+                    '0x254b0e1dee486908345e608da64afe35caa02a1c',
+                    '0xfad4a236c87880035497043f24ea58d73c3e50de'
+                ].map(a => a.toLowerCase());
+
+                const shitty = [
+                    '0x7971d8defa89bf68ff4142b2bb1e1e3866927b36',
+                    '0x33344541086c709fe585caeabc83e5947e783333',
+                    '0xcbb8aaf930497c7bd0de6b19903410698e8adab4',
+                    '0xc352d245f25fec51ff15c77fc5bf767bf655276a',
+                    '0x9daa24510951bc0ac5d1e4f89de5efd89cc8e0b0',
+                    '0x941dab361e6d3f0b310f78c2c9eb6779608de0c3',
+                    '0x8877e6657f48aee236b47eb1c65be8e7a44f11f8',
+                    '0x1a146e329333919542cdb6d2d87de370275124c6',
+                    '0xf7d862d42976662d649cc356f4ca3854d595d53d',
+                    '0xd125b9d1415b77e0951d5b91dce3ce5d9e4375d0',
+                    '0xb94f03ad1b8ddddb82b08cd038b652cbfc47fbb4',
+                    '0x8832abcd7248ed2bd740d3eafdeb774ab8332623',
+                    '0x6dfb81b6945967e57052e4132a9ca328f8d12f7c',
+                    '0x11817fa65a9c2f68fc03bbbc9f2113d59b96908b'
+                ].map(a => a.toLowerCase());
+
+                for (let i = firstBlock; i <= lastBlock; i++) {
+                    const block = await provider.getBlock(i, true); // avec tx hash
+                    if (!block) continue;
+
+                    let burntPerBlock = 0;
+                    let burntDead = 0;
+                    let burntType2 = 0;
+
+                    for (const txHash of block.transactions) {
+                        const tx = await provider.getTransaction(txHash);
+                        if (!tx) continue;
+
+                        txList.push(tx);
+
+                        // EIP-1559 tx (type 2)
+                        if (tx.type === 2) {
+                            const receipt = await provider.getTransactionReceipt(tx.hash);
+                            if (receipt && block.baseFeePerGas) {
+                                const gasUsed = BigInt(receipt.gasUsed.toString());
+                                const baseFee = BigInt(block.baseFeePerGas.toString());
+                                const weiBurnt = gasUsed * baseFee;
+                                const fees = Number(weiBurnt) / 1e18;
+                                burntType2 += fees;
+                            }
+                        }
+
+                        // transfert direct au dead address
+                        if (tx.to?.toLowerCase() === dead) {
+                            const burnt = Number(tx.value.toString()) / 1e18;
+                            burntDead += burnt;
+                        }
+                    }
+
+                    burntPerBlock += burntDead + burntType2;
+                    burntClo += burntPerBlock;
+                }
+
+                // -------- Stats globales --------
+                const totalTx = txList.length;
+                const totalActive = new Set(txList.map(tx => tx.from.toLowerCase())).size;
+
+                // top wallet (celui qui envoie le + de tx)
+                const fromCounts: Record<string, number> = {};
+                for (const tx of txList) {
+                    const addr = tx.from.toLowerCase();
+                    fromCounts[addr] = (fromCounts[addr] || 0) + 1;
+                }
+                const topWallet = Object.entries(fromCounts).sort((a, b) => b[1] - a[1])[0];
+                const [topAddress, topCount] = topWallet || ["0x0", 0];
+                const topPercentage = totalTx > 0 ? (topCount / totalTx) * 100 : 0;
+
+                // miners
+                const minersCount = txList.filter(tx => miners.includes(tx.from.toLowerCase())).length;
+                const minersPct = totalTx > 0 ? (minersCount / totalTx) * 100 : 0;
+
+                // shitty
+                const shittyCount = txList.filter(tx => shitty.includes(tx.from.toLowerCase())).length;
+                const shittyPct = totalTx > 0 ? (shittyCount / totalTx) * 100 : 0;
+
+                return {
+                    success: true,
+                    total_tx: totalTx,
+                    total_active: totalActive,
+                    burnt_clo: burntClo,
+                    top_wallet: {
+                        address: topAddress,
+                        percentage: topPercentage.toFixed(2),
+                    },
+                    miners: {
+                        count: minersCount,
+                        percentage: minersPct.toFixed(2),
+                    },
+                    shitty: {
+                        count: shittyCount,
+                        percentage: shittyPct.toFixed(2),
+                    },
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    message: `Failed to fetch tx stats: ${(error as Error).message}`,
+                };
+            }
         }
 
         // NEW: Check Cold Staking Rewards
